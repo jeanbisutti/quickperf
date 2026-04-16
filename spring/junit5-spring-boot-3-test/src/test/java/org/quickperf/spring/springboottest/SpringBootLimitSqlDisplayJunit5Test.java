@@ -18,6 +18,7 @@ import org.quickperf.junit5.JUnit5Tests.JUnit5TestsResult;
 import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithApplicationProperties;
 import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithApplicationYml;
 import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithSpringBootTestProperties;
+import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,6 +69,26 @@ class SpringBootLimitSqlDisplayJunit5Test {
 
         // GIVEN
         Class<?> testClass = LimitSqlDisplayWithSpringBootTestProperties.class;
+        JUnit5Tests jUnit5Tests = JUnit5Tests.createInstance(testClass);
+
+        // WHEN
+        JUnit5TestsResult jUnit5TestsResult = jUnit5Tests.run();
+
+        // THEN
+        assertThat(jUnit5TestsResult.getNumberOfFailures()).isOne();
+
+        String errorReport = jUnit5TestsResult.getErrorReport();
+        assertThat(errorReport)
+                      .contains("You may think that <1> select statement was sent to the database")
+                      .doesNotContain("[JDBC QUERY EXECUTION");
+
+    }
+
+    @Test
+    void should_limit_sql_display_when_property_defined_in_spring_boot_test_properties_with_forked_jvm() {
+
+        // GIVEN
+        Class<?> testClass = LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm.class;
         JUnit5Tests jUnit5Tests = JUnit5Tests.createInstance(testClass);
 
         // WHEN
