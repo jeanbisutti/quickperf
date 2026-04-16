@@ -14,20 +14,20 @@ package org.quickperf.spring.springboottest;
 
 import org.junit.Test;
 import org.junit.experimental.results.PrintableResult;
-import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithApplicationProperties;
-import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithApplicationYml;
-import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithSpringBootTestProperties;
-import org.quickperf.spring.springboottest.limitsqldisplay.LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm;
+import org.quickperf.spring.springboottest.limitsqldisplay.SpringBoot2JUnit4LimitSqlDisplayWithApplicationProperties;
+import org.quickperf.spring.springboottest.limitsqldisplay.SpringBoot2JUnit4LimitSqlDisplayWithApplicationYml;
+import org.quickperf.spring.springboottest.limitsqldisplay.SpringBoot2JUnit4LimitSqlDisplayWithSpringBootTestProperties;
+import org.quickperf.spring.springboottest.limitsqldisplay.SpringBoot2JUnit4LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class SpringBootLimitSqlDisplayJunit4Test {
+public class SpringBoot2JUnit4LimitSqlDisplayTest {
 
     @Test
     public void should_limit_sql_display_when_property_defined_in_application_yml() {
 
         // GIVEN
-        Class<?> testClass = LimitSqlDisplayWithApplicationYml.class;
+        Class<?> testClass = SpringBoot2JUnit4LimitSqlDisplayWithApplicationYml.class;
 
         // WHEN
         PrintableResult printableResult = PrintableResult.testResult(testClass);
@@ -46,7 +46,7 @@ public class SpringBootLimitSqlDisplayJunit4Test {
     public void should_limit_sql_display_when_property_defined_in_application_properties() {
 
         // GIVEN
-        Class<?> testClass = LimitSqlDisplayWithApplicationProperties.class;
+        Class<?> testClass = SpringBoot2JUnit4LimitSqlDisplayWithApplicationProperties.class;
 
         // WHEN
         PrintableResult printableResult = PrintableResult.testResult(testClass);
@@ -65,7 +65,7 @@ public class SpringBootLimitSqlDisplayJunit4Test {
     public void should_limit_sql_display_when_property_defined_in_spring_boot_test_properties() {
 
         // GIVEN
-        Class<?> testClass = LimitSqlDisplayWithSpringBootTestProperties.class;
+        Class<?> testClass = SpringBoot2JUnit4LimitSqlDisplayWithSpringBootTestProperties.class;
 
         // WHEN
         PrintableResult printableResult = PrintableResult.testResult(testClass);
@@ -84,7 +84,7 @@ public class SpringBootLimitSqlDisplayJunit4Test {
     public void should_limit_sql_display_when_property_defined_in_spring_boot_test_properties_with_forked_jvm() {
 
         // GIVEN
-        Class<?> testClass = LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm.class;
+        Class<?> testClass = SpringBoot2JUnit4LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm.class;
 
         // WHEN
         PrintableResult printableResult = PrintableResult.testResult(testClass);

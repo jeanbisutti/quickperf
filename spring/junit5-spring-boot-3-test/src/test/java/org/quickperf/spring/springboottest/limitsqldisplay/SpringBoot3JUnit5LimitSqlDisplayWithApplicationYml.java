@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @QuickPerfTest
 @SpringBootTest(classes = {FootballApplication.class})
-@ActiveProfiles("limitsqlprops")
-public class LimitSqlDisplayWithApplicationProperties {
+@ActiveProfiles("limitsqlyml")
+public class SpringBoot3JUnit5LimitSqlDisplayWithApplicationYml {
 
     @Autowired
     private PlayerService playerService;

@@ -12,8 +12,9 @@
  */
 package org.quickperf.spring.springboottest.limitsqldisplay;
 
-import org.junit.jupiter.api.Test;
-import org.quickperf.junit5.QuickPerfTest;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.quickperf.spring.junit4.QuickPerfSpringRunner;
 import org.quickperf.spring.springboottest.FootballApplication;
 import org.quickperf.spring.springboottest.dto.PlayerWithTeamName;
 import org.quickperf.spring.springboottest.service.PlayerService;
@@ -26,17 +27,17 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@QuickPerfTest
+@RunWith(QuickPerfSpringRunner.class)
 @SpringBootTest(classes = {FootballApplication.class})
 @ActiveProfiles("limitsqlyml")
-public class LimitSqlDisplayWithApplicationYml {
+public class SpringBoot2JUnit4LimitSqlDisplayWithApplicationYml {
 
     @Autowired
     private PlayerService playerService;
 
     @ExpectSelect(1)
     @Test
-    void should_find_all_players_with_team_name() {
+    public void should_find_all_players_with_team_name() {
 
         List<PlayerWithTeamName> playersWithTeamName = playerService.findPlayersWithTeamName();
 

@@ -12,32 +12,35 @@
  */
 package org.quickperf.spring.springboottest.limitsqldisplay;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.quickperf.spring.junit4.QuickPerfSpringRunner;
+import org.junit.jupiter.api.Test;
+import org.quickperf.junit5.QuickPerfTest;
+import org.quickperf.jvm.allocation.AllocationUnit;
+import org.quickperf.jvm.annotations.HeapSize;
 import org.quickperf.spring.springboottest.FootballApplication;
 import org.quickperf.spring.springboottest.dto.PlayerWithTeamName;
 import org.quickperf.spring.springboottest.service.PlayerService;
 import org.quickperf.sql.annotation.ExpectSelect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(QuickPerfSpringRunner.class)
-@SpringBootTest(classes = {FootballApplication.class})
-@ActiveProfiles("limitsqlprops")
-public class LimitSqlDisplayWithApplicationProperties {
+@QuickPerfTest
+@SpringBootTest(
+        classes = {FootballApplication.class},
+        properties = {"limitQuickPerfSqlInfoOnConsole=true"}
+)
+public class SpringBoot3JUnit5LimitSqlDisplayWithSpringBootTestPropertiesForkedJvm {
 
     @Autowired
     private PlayerService playerService;
 
+    @HeapSize(value = 50, unit = AllocationUnit.MEGA_BYTE)
     @ExpectSelect(1)
     @Test
-    public void should_find_all_players_with_team_name() {
+    void should_find_all_players_with_team_name() {
 
         List<PlayerWithTeamName> playersWithTeamName = playerService.findPlayersWithTeamName();
 
