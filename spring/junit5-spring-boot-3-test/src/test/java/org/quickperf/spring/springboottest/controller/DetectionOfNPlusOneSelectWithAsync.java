@@ -12,16 +12,17 @@
  */
 package org.quickperf.spring.springboottest.controller;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.quickperf.spring.junit4.QuickPerfSpringRunner;
+import org.junit.jupiter.api.Test;
+import org.quickperf.junit5.QuickPerfTest;
 import org.quickperf.spring.springboottest.FootballApplication;
 import org.quickperf.spring.springboottest.dto.PlayerWithTeamName;
 import org.quickperf.sql.annotation.ExpectSelect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -29,11 +30,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(QuickPerfSpringRunner.class)
+@QuickPerfTest
 @SpringBootTest(classes = {FootballApplication.class}
               , webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
-public class DetectionOfNPlusOneSelectInWebService {
+public class DetectionOfNPlusOneSelectWithAsync {
 
     @LocalServerPort
     private int port;
@@ -43,17 +44,21 @@ public class DetectionOfNPlusOneSelectInWebService {
 
     @ExpectSelect(1)
     @Test
-    public void should_find_all_players() {
+    void should_detect_n_plus_one_select_via_async_endpoint() {
 
         // GIVEN
-        String getUrl = "http://localhost:" + port + "/players";
+        String url = "http://localhost:" + port + "/async/players";
 
         // WHEN
-        ResponseEntity<List> playersResponseEntity = restTemplate.getForEntity(getUrl, List.class);
-        List<PlayerWithTeamName> players = playersResponseEntity.getBody();
+        ParameterizedTypeReference<List<PlayerWithTeamName>> paramType
+                = new ParameterizedTypeReference<>() {};
+        ResponseEntity<List<PlayerWithTeamName>> playersResponseEntity = restTemplate
+                .exchange(url, HttpMethod.GET, null, paramType);
 
         // THEN
         assertThat(playersResponseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        List<PlayerWithTeamName> players = playersResponseEntity.getBody();
         assertThat(players).hasSize(2);
 
     }

@@ -12,50 +12,45 @@
  */
 package org.quickperf.spring.springboottest.controller;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.quickperf.spring.junit4.QuickPerfSpringRunner;
+import org.junit.jupiter.api.Test;
+import org.quickperf.junit5.QuickPerfTest;
 import org.quickperf.spring.springboottest.FootballApplication;
 import org.quickperf.spring.springboottest.dto.PlayerWithTeamName;
+import org.quickperf.spring.springboottest.service.AsyncPlayerService;
 import org.quickperf.sql.annotation.ExpectSelect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(QuickPerfSpringRunner.class)
-@SpringBootTest(classes = {FootballApplication.class}
-              , webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
-public class DetectionOfNPlusOneSelectInWebService {
-
-    @LocalServerPort
-    private int port;
+@QuickPerfTest
+@SpringBootTest(classes = {FootballApplication.class})
+public class CrossTestContaminationWithConcurrentAsync {
 
     @Autowired
-    private TestRestTemplate restTemplate;
+    private AsyncPlayerService asyncPlayerService;
 
-    @ExpectSelect(1)
+    @ExpectSelect(3)
     @Test
-    public void should_find_all_players() {
-
-        // GIVEN
-        String getUrl = "http://localhost:" + port + "/players";
-
-        // WHEN
-        ResponseEntity<List> playersResponseEntity = restTemplate.getForEntity(getUrl, List.class);
-        List<PlayerWithTeamName> players = playersResponseEntity.getBody();
-
-        // THEN
-        assertThat(playersResponseEntity.getStatusCode()).isEqualTo(HttpStatus.OK);
+    void test_with_async_select() throws Exception {
+        // SQL executes on a Spring @Async executor thread (not the test thread).
+        // 1 SELECT for players + 2 SELECTs for lazy-loaded teams (N+1)
+        CompletableFuture<List<PlayerWithTeamName>> future =
+                asyncPlayerService.findPlayersWithTeamNameAsync();
+        List<PlayerWithTeamName> players = future.get();
         assertThat(players).hasSize(2);
+    }
 
+    @ExpectSelect(0)
+    @Test
+    void test_with_no_sql() throws InterruptedException {
+        // Keep this test's recorder active long enough for the concurrent
+        // test's @Async SQL to be recorded via ALL_ACTIVE_RECORDERS —
+        // which includes this test's recorder.
+        Thread.sleep(2000);
     }
 
 }
