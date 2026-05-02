@@ -64,6 +64,7 @@
                 <jdk>[17,)</jdk>
             </activation>
             <modules>
+                <module>spring-boot-r2dbc-sql-starter</module>
                 <module>junit5-spring-boot-3-test</module>
             </modules>
         </profile>
