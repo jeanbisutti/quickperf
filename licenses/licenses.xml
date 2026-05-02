@@ -35,10 +35,15 @@
             <names>
                 <name>The Apache Software License, Version 2.0</name>
                 <name>Apache Public License 2.0</name>
+                <name>Apache License 2.0</name>
+                <name>Apache License, Version 2.0</name>
+                <name>Apache-2.0</name>
             </names>
             <urls>
                 <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
                 <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+                <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+                <url>https://www.apache.org/licenses/LICENSE-2.0</url>
             </urls>
         </license>
         <license>

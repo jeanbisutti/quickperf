@@ -38,6 +38,11 @@
             </dependency>
             <dependency>
                 <groupId>org.quickperf</groupId>
+                <artifactId>quick-perf-sql-annotations-r2dbc</artifactId>
+                <version>1.1.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quickperf</groupId>
                 <artifactId>quick-perf-junit4</artifactId>
                 <version>1.1.1-SNAPSHOT</version>
             </dependency>
@@ -84,6 +89,11 @@
             <dependency>
                 <groupId>org.quickperf</groupId>
                 <artifactId>quick-perf-springboot2-sql-starter</artifactId>
+                <version>1.1.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quickperf</groupId>
+                <artifactId>quick-perf-springboot-r2dbc-sql-starter</artifactId>
                 <version>1.1.1-SNAPSHOT</version>
             </dependency>
         </dependencies>
