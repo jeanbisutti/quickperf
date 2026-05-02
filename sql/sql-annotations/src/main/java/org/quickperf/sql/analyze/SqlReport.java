@@ -17,7 +17,9 @@ import org.quickperf.sql.SqlExecution;
 import org.quickperf.sql.SqlExecutions;
 import org.quickperf.sql.bindparams.AllParametersAreBoundExtractor;
 import org.quickperf.sql.execution.SqlAnalysis;
+import org.quickperf.sql.framework.ClassPath;
 import org.quickperf.sql.framework.JdbcSuggestion;
+import org.quickperf.sql.framework.R2DBCSuggestion;
 import org.quickperf.sql.like.ContainsLikeWithLeadingWildcardExtractor;
 import org.quickperf.sql.select.analysis.SelectAnalysis;
 import org.quickperf.time.ExecutionTime;
@@ -79,14 +81,23 @@ public class SqlReport {
 
     private String buildNPlusOneMessage(SqlAnalysis sqlAnalysis) {
         if (sqlAnalysis.getSelectAnalysis().getSameSelectTypesWithDifferentParamValues().evaluate()) {
-            SelectAnalysis.SameSelectTypesWithDifferentParamValues sameSelectTypesWithDifferentParamValues = sqlAnalysis.getSelectAnalysis().getSameSelectTypesWithDifferentParamValues();
-            return addSeparationString() + ALERT_MESSAGE
-                    + SelectAnalysis.getNPlusOneFrameworkMessage()
-                    + System.lineSeparator()
-                    + System.lineSeparator()
-                    + JdbcSuggestion.SERVER_ROUND_TRIPS.getMessage()
-                    + System.lineSeparator()
-                    + System.lineSeparator();
+            StringBuilder message = new StringBuilder();
+            message.append(addSeparationString())
+                   .append(ALERT_MESSAGE)
+                   .append(SelectAnalysis.getNPlusOneFrameworkMessage())
+                   .append(System.lineSeparator())
+                   .append(System.lineSeparator())
+                   .append(JdbcSuggestion.SERVER_ROUND_TRIPS.getMessage());
+            if (ClassPath.INSTANCE.containsR2dbcSpi()) {
+                message.append(System.lineSeparator())
+                       .append(System.lineSeparator())
+                       .append(R2DBCSuggestion.SERVER_ROUND_TRIPS.getMessage())
+                       .append(System.lineSeparator())
+                       .append(R2DBCSuggestion.N_PLUS_ONE.getMessage());
+            }
+            message.append(System.lineSeparator())
+                   .append(System.lineSeparator());
+            return message.toString();
         }
 
         return EMPTY_MESSAGE;

@@ -18,6 +18,7 @@ import org.quickperf.sql.framework.ClassPath;
 import org.quickperf.sql.framework.HibernateSuggestion;
 import org.quickperf.sql.framework.JdbcSuggestion;
 import org.quickperf.sql.framework.MicronautSuggestion;
+import org.quickperf.sql.framework.R2DBCSuggestion;
 import org.quickperf.unit.Count;
 import org.quickperf.unit.NoUnit;
 
@@ -55,10 +56,21 @@ public class SelectAnalysis implements PerfMeasure {
             return "";
         }
 
-        return lineSeparator()
-             + lineSeparator()
-             + JdbcSuggestion.SERVER_ROUND_TRIPS.getMessage()
-             + getNPlusOneFrameworkMessage();
+        StringBuilder alert = new StringBuilder();
+        alert.append(lineSeparator())
+             .append(lineSeparator())
+             .append(JdbcSuggestion.SERVER_ROUND_TRIPS.getMessage())
+             .append(getNPlusOneFrameworkMessage());
+
+        if (ClassPath.INSTANCE.containsR2dbcSpi()) {
+            alert.append(lineSeparator())
+                 .append(lineSeparator())
+                 .append(R2DBCSuggestion.SERVER_ROUND_TRIPS.getMessage())
+                 .append(lineSeparator())
+                 .append(R2DBCSuggestion.N_PLUS_ONE.getMessage());
+        }
+
+        return alert.toString();
 
     }
 

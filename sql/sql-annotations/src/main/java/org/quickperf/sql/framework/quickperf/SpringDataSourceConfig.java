@@ -30,50 +30,79 @@ class SpringDataSourceConfig implements QuickPerfSuggestion {
     @Override
     public String getMessage() {
 
-        if (classPath.containsSpringBoot1()) {
-            if (classPath.contains(QUICKPERF_SPRING_BOOT_1_SQL_STARTER)) {
-                return LINE_SEPARATOR + buildSpringRESTControllerMessage();
+        StringBuilder out = new StringBuilder();
+
+        if (classPath.containsR2dbcSpi()) {
+            if (classPath.contains(QUICKPERF_SPRING_BOOT_R2DBC_SQL_STARTER)) {
+                out.append(LINE_SEPARATOR).append(buildSpringRESTControllerMessage());
+            } else {
+                out.append("To configure the reactive proxy, add the following dependency: ")
+                   .append(LINE_SEPARATOR).append(format(QUICKPERF_SPRING_BOOT_R2DBC_SQL_STARTER));
             }
-            return "To configure it, add the following dependency: "
-                  + LINE_SEPARATOR + format(QUICKPERF_SPRING_BOOT_1_SQL_STARTER);
+        }
+
+        if (classPath.containsSpringBoot1()) {
+            appendSeparatorIfNotEmpty(out);
+            if (classPath.contains(QUICKPERF_SPRING_BOOT_1_SQL_STARTER)) {
+                out.append(LINE_SEPARATOR).append(buildSpringRESTControllerMessage());
+            } else {
+                out.append("To configure it, add the following dependency: ")
+                   .append(LINE_SEPARATOR).append(format(QUICKPERF_SPRING_BOOT_1_SQL_STARTER));
+            }
+            return out.toString();
         }
 
         if (classPath.containsSpringBoot2() || classPath.containsSpringBoot3()) {
+            appendSeparatorIfNotEmpty(out);
             if (classPath.contains(QUICKPERF_SPRING_BOOT_2_SQL_STARTER)) {
-                return LINE_SEPARATOR + buildSpringRESTControllerMessage();
+                out.append(LINE_SEPARATOR).append(buildSpringRESTControllerMessage());
+            } else {
+                out.append("To configure it, add the following dependency: ")
+                   .append(LINE_SEPARATOR).append(format(QUICKPERF_SPRING_BOOT_2_SQL_STARTER));
             }
-            return   "To configure it, add the following dependency: "
-                    + LINE_SEPARATOR + format(QUICKPERF_SPRING_BOOT_2_SQL_STARTER);
+            return out.toString();
         }
 
         if (classPath.containsSpring4()) {
+            appendSeparatorIfNotEmpty(out);
             if (classPath.contains(QUICKPERF_SQL_SPRING_4)) {
-                return    "Import QuickPerfSqlConfig:"
-                        + LINE_SEPARATOR + buildImportQuickPerfSqlConfigExample()
-                        + LINE_SEPARATOR
-                        + LINE_SEPARATOR + buildSpringRESTControllerMessage();
+                out.append("Import QuickPerfSqlConfig:")
+                   .append(LINE_SEPARATOR).append(buildImportQuickPerfSqlConfigExample())
+                   .append(LINE_SEPARATOR)
+                   .append(LINE_SEPARATOR).append(buildSpringRESTControllerMessage());
+            } else {
+                out.append("To configure the proxy, add the following dependency: ")
+                   .append(LINE_SEPARATOR).append(format(QUICKPERF_SQL_SPRING_4))
+                   .append(LINE_SEPARATOR).append("You have also to import QuickPerfSqlConfig:")
+                   .append(LINE_SEPARATOR).append(buildImportQuickPerfSqlConfigExample());
             }
-            return   "To configure the proxy, add the following dependency: "
-                    + LINE_SEPARATOR + format(QUICKPERF_SQL_SPRING_4)
-                    + LINE_SEPARATOR + "You have also to import QuickPerfSqlConfig:"
-                    + LINE_SEPARATOR + buildImportQuickPerfSqlConfigExample();
+            return out.toString();
         }
 
         if (classPath.containsSpring5()) {
+            appendSeparatorIfNotEmpty(out);
             if (classPath.contains(QUICKPERF_SQL_SPRING_5)) {
-                return    "Import QuickPerfSqlConfig:"
-                        + LINE_SEPARATOR + buildImportQuickPerfSqlConfigExample()
-                        + LINE_SEPARATOR
-                        + LINE_SEPARATOR + buildSpringRESTControllerMessage();
+                out.append("Import QuickPerfSqlConfig:")
+                   .append(LINE_SEPARATOR).append(buildImportQuickPerfSqlConfigExample())
+                   .append(LINE_SEPARATOR)
+                   .append(LINE_SEPARATOR).append(buildSpringRESTControllerMessage());
+            } else {
+                out.append("To configure the proxy, add the following dependency: ")
+                   .append(LINE_SEPARATOR).append(format(QUICKPERF_SQL_SPRING_5))
+                   .append(LINE_SEPARATOR).append("You have also to import QuickPerfSqlConfig:")
+                   .append(LINE_SEPARATOR).append(buildImportQuickPerfSqlConfigExample());
             }
-            return  "To configure the proxy, add the following dependency: "
-                    + LINE_SEPARATOR + format(QUICKPERF_SQL_SPRING_5)
-                    + LINE_SEPARATOR + "You have also to import QuickPerfSqlConfig:"
-                    + LINE_SEPARATOR + buildImportQuickPerfSqlConfigExample();
+            return out.toString();
         }
 
-        return "";
+        return out.toString();
 
+    }
+
+    private static void appendSeparatorIfNotEmpty(StringBuilder out) {
+        if (out.length() > 0) {
+            out.append(LINE_SEPARATOR).append(LINE_SEPARATOR);
+        }
     }
 
     private String buildSpringRESTControllerMessage() {
