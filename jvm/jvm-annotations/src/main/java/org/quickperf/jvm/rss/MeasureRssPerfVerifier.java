@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.rss;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.allocation.Allocation;
@@ -29,7 +30,8 @@ public class MeasureRssPerfVerifier implements VerifiablePerformanceIssue<Measur
     }
 
     @Override
-    public PerfIssue verifyPerfIssue(MeasureRSS annotation, ProcessStatus measure) {
+    public PerfIssue verifyPerfIssue(MeasureRSS annotation, ProcessStatus measure,
+                                     PropertyResolver propertyResolver) {
         Allocation allocation = new Allocation(Double.valueOf(measure.getRssInKb()), AllocationUnit.KILO_BYTE);
         System.out.println("[QUICK PERF] Measured RSS (process " + measure.getPid() + "): " + formatter.formatAndAppendAllocationInBytes(allocation));
         return PerfIssue.NONE;

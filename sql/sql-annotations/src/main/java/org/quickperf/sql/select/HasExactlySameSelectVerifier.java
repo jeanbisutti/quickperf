@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.DisableSameSelects;
@@ -25,7 +26,8 @@ public class HasExactlySameSelectVerifier implements VerifiablePerformanceIssue<
 
     @Override
     public PerfIssue verifyPerfIssue(DisableSameSelects annotation
-                                   , SelectAnalysis selectAnalysis) {
+                                   , SelectAnalysis selectAnalysis
+                                   , PropertyResolver propertyResolver) {
 
         if(selectAnalysis.hasSameSelects()) {
             return new PerfIssue("Same SELECT statements");

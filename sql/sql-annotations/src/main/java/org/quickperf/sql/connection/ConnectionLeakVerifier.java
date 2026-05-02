@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.connection;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.measure.BooleanMeasure;
@@ -24,7 +25,8 @@ public class ConnectionLeakVerifier implements VerifiablePerformanceIssue<Expect
     private ConnectionLeakVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectNoConnectionLeak annotation, BooleanMeasure connectionLeak) {
+    public PerfIssue verifyPerfIssue(ExpectNoConnectionLeak annotation, BooleanMeasure connectionLeak,
+                                     PropertyResolver propertyResolver) {
         if(connectionLeak.isTrue()) {
             return new PerfIssue("Database connection leak");
         }

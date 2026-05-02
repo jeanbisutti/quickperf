@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.insert;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxInsert;
@@ -26,7 +27,8 @@ public class MaxOfInsertsPerfIssueVerifier implements VerifiablePerformanceIssue
     private MaxOfInsertsPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxInsert annotation, Count measuredCount) {
+    public PerfIssue verifyPerfIssue(ExpectMaxInsert annotation, Count measuredCount,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

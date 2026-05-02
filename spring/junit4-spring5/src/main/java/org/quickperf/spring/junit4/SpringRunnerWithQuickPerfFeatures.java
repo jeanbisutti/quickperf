@@ -21,6 +21,8 @@ import org.junit.runner.manipulation.NoTestsRemainException;
 import org.junit.runner.manipulation.Sorter;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.model.*;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.junit4.QuickPerfJUnitRunner;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -52,7 +54,31 @@ class SpringRunnerWithQuickPerfFeatures extends SpringJUnit4ClassRunner {
 
     @Override
     protected Statement methodInvoker(FrameworkMethod frameworkMethod, Object test) {
-        return quickPerfJUnitRunner.methodInvoker(frameworkMethod, test);
+        PropertyResolver springPropertyResolver = buildSpringPropertyResolver();
+        return quickPerfJUnitRunner.methodInvoker(frameworkMethod, test, springPropertyResolver);
+    }
+
+    private PropertyResolver buildSpringPropertyResolver() {
+        try {
+            java.lang.reflect.Method getTestContextMethod = getTestContextManager().getClass().getMethod("getTestContext");
+            getTestContextMethod.setAccessible(true);
+            Object testContext = getTestContextMethod.invoke(getTestContextManager());
+            Object applicationContext = testContext.getClass().getMethod("getApplicationContext").invoke(testContext);
+            final Object environment = applicationContext.getClass().getMethod("getEnvironment").invoke(applicationContext);
+            final java.lang.reflect.Method getPropertyMethod = environment.getClass().getMethod("getProperty", String.class);
+            return new PropertyResolver() {
+                @Override
+                public String resolve(String propertyName) {
+                    try {
+                        return (String) getPropertyMethod.invoke(environment, propertyName);
+                    } catch (Throwable t) {
+                        return null;
+                    }
+                }
+            };
+        } catch (Throwable t) {
+            return SystemPropertyResolver.INSTANCE;
+        }
     }
 
     @Override

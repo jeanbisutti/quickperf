@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.update;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectUpdate;
@@ -26,7 +27,8 @@ public class UpdateNumberPerfIssueVerifier implements VerifiablePerformanceIssue
     private UpdateNumberPerfIssueVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectUpdate annotation, Count measuredCount) {
+    public PerfIssue verifyPerfIssue(ExpectUpdate annotation, Count measuredCount,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

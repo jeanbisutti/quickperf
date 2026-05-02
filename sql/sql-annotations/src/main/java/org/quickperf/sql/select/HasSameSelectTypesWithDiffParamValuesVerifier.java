@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.DisableSameSelectTypesWithDifferentParamValues;
@@ -26,14 +27,15 @@ public class HasSameSelectTypesWithDiffParamValuesVerifier implements Verifiable
 
     @Override
     public PerfIssue verifyPerfIssue(DisableSameSelectTypesWithDifferentParamValues annotation
-                                   , SelectAnalysis selectAnalysis) {
+                                   , SelectAnalysis selectAnalysis
+                                   , PropertyResolver propertyResolver) {
 
         SameSelectTypesWithDifferentParamValues sameSelectTypesWithDifferentParamValues =
                 selectAnalysis.getSameSelectTypesWithDifferentParamValues();
 
         if(sameSelectTypesWithDifferentParamValues.evaluate()) {
             String description =  "Same SELECT types with different parameter values";
-            description += sameSelectTypesWithDifferentParamValues.getSuggestionToFixIt();
+            description += sameSelectTypesWithDifferentParamValues.getSuggestionToFixIt(SelectAnalysis.simplifiedSqlDisplay(propertyResolver));
             return new PerfIssue(description);
         }
 

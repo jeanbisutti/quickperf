@@ -30,18 +30,22 @@ public enum JdbcSuggestion implements QuickPerfSuggestion {
     BATCHING {
         @Override
         public String getMessage() {
-            if(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate()) {
-                return "";
-            }
-            if (  ClassPath.INSTANCE.containsSpringDataJpa()
-               && ClassPath.INSTANCE.containsSpringBoot() ) {
-                return SpringDataJpaSpringBootSuggestion.BATCHING.getMessage();
-            }
-            if (ClassPath.INSTANCE.containsHibernate()) {
-                return HibernateSuggestion.BATCHING.getMessage();
-            }
+            return getBatchingMessage(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate());
+        }
+    };
+
+    public static String getBatchingMessage(boolean simplifiedSqlDisplay) {
+        if(simplifiedSqlDisplay) {
             return "";
         }
+        if (  ClassPath.INSTANCE.containsSpringDataJpa()
+           && ClassPath.INSTANCE.containsSpringBoot() ) {
+            return SpringDataJpaSpringBootSuggestion.BATCHING.getMessage();
+        }
+        if (ClassPath.INSTANCE.containsHibernate()) {
+            return HibernateSuggestion.BATCHING.getMessage();
+        }
+        return "";
     }
 
 }

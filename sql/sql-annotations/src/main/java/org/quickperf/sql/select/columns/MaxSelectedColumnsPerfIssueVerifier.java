@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select.columns;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxSelectedColumn;
@@ -24,7 +25,8 @@ public class MaxSelectedColumnsPerfIssueVerifier implements VerifiablePerformanc
     private MaxSelectedColumnsPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxSelectedColumn annotation, Count maxSqlCountMeasure) {
+    public PerfIssue verifyPerfIssue(ExpectMaxSelectedColumn annotation, Count maxSqlCountMeasure,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

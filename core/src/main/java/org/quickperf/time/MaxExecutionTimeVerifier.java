@@ -13,6 +13,7 @@
 package org.quickperf.time;
 
 import org.quickperf.annotation.ExpectMaxExecutionTime;
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 
@@ -29,7 +30,8 @@ public class MaxExecutionTimeVerifier implements VerifiablePerformanceIssue<Expe
     private MaxExecutionTimeVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxExecutionTime annotation, ExecutionTime measuredExecutionTime) {
+    public PerfIssue verifyPerfIssue(ExpectMaxExecutionTime annotation, ExecutionTime measuredExecutionTime,
+                                     PropertyResolver propertyResolver) {
 
         ExecutionTime maxExpectedExecutionTime = buildMaxExpectedExecutionTimeFrom(annotation);
 

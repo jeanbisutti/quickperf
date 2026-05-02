@@ -13,6 +13,7 @@
 package org.quickperf.time;
 
 import org.quickperf.annotation.MeasureExecutionTime;
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 
@@ -25,7 +26,8 @@ public class MeasureExecutionTimeReporter implements VerifiablePerformanceIssue<
     private final ExecutionTimeFormatter formatter = ExecutionTimeFormatter.INSTANCE;
 
     @Override
-    public PerfIssue verifyPerfIssue(MeasureExecutionTime annotation, ExecutionTime measuredExecutionTime) {
+    public PerfIssue verifyPerfIssue(MeasureExecutionTime annotation, ExecutionTime measuredExecutionTime,
+                                     PropertyResolver propertyResolver) {
         System.out.println("[QUICK PERF] Execution time of the test method: " + formatter.formatAndAppendNanoSeconds(measuredExecutionTime)
                           + System.lineSeparator()
                           + ExecutionTimeWarning.INSTANCE.toString()

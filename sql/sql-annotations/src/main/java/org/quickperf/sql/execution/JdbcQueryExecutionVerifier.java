@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.execution;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectJdbcQueryExecution;
@@ -25,7 +26,8 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
     private JdbcQueryExecutionVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectJdbcQueryExecution annotation, SqlAnalysis sqlAnalysis) {
+    public PerfIssue verifyPerfIssue(ExpectJdbcQueryExecution annotation, SqlAnalysis sqlAnalysis,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedExecutionNumber = new Count(annotation.value());
         Count executionNumber = sqlAnalysis.getJdbcQueryExecutionNumber();
@@ -33,7 +35,7 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
         if (!executionNumber.isEqualTo(expectedExecutionNumber)) {
             String description =   buildBaseDescription(executionNumber, expectedExecutionNumber)
                                  + buildPotentialSuggestionToFix(sqlAnalysis, executionNumber
-                                                               , expectedExecutionNumber);
+                                                               , expectedExecutionNumber, propertyResolver);
             return new PerfIssue(description);
         }
 
@@ -51,14 +53,14 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
                 + "       " + "But there " + (severalExecutions ? "are" : "is") + " <" + executionNumber.getValue() + ">...";
     }
 
-    private String buildPotentialSuggestionToFix(SqlAnalysis sqlAnalysis, Count executionNumber, Count expectedExecutionNumber) {
+    private String buildPotentialSuggestionToFix(SqlAnalysis sqlAnalysis, Count executionNumber, Count expectedExecutionNumber, PropertyResolver propertyResolver) {
         SelectAnalysis selectAnalysis = sqlAnalysis.getSelectAnalysis();
         SelectAnalysis.SameSelectTypesWithDifferentParamValues sameSelectTypesWithDifferentParamValues =
                 selectAnalysis.getSameSelectTypesWithDifferentParamValues();
         if(   executionNumber.isGreaterThan(expectedExecutionNumber)
            && sameSelectTypesWithDifferentParamValues.evaluate()
         ) {
-            return sameSelectTypesWithDifferentParamValues.getSuggestionToFixIt();
+            return sameSelectTypesWithDifferentParamValues.getSuggestionToFixIt(SelectAnalysis.simplifiedSqlDisplay(propertyResolver));
         }
         return "";
     }

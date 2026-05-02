@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select.columns;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectSelectedColumn;
@@ -24,7 +25,8 @@ public class SelectedColumnNumberPerfIssueVerifier implements VerifiablePerforma
     private SelectedColumnNumberPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectSelectedColumn annotation, Count measuredCount) {
+    public PerfIssue verifyPerfIssue(ExpectSelectedColumn annotation, Count measuredCount,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

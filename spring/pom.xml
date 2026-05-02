@@ -34,6 +34,7 @@
         <module>junit4-spring3</module>
         <module>junit4-spring4</module>
         <module>junit4-spring5</module>
+        <module>junit5-spring</module>
         <module>spring-boot-1-sql-starter</module>
         <module>spring-boot-2-sql-starter</module>
         <module>junit4-spring-base-tests</module>

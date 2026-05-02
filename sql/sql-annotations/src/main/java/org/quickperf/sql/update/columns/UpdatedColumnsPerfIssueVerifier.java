@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.update.columns;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectUpdatedColumn;
@@ -23,7 +24,8 @@ public class UpdatedColumnsPerfIssueVerifier implements VerifiablePerformanceIss
     private UpdatedColumnsPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectUpdatedColumn annotation, NumberOfUpdatedColumnsStatisticsMeasure measure) {
+    public PerfIssue verifyPerfIssue(ExpectUpdatedColumn annotation, NumberOfUpdatedColumnsStatisticsMeasure measure,
+                                     PropertyResolver propertyResolver) {
 
         NumberOfUpdatedColumnsStatistics updatedColumnsStatistics = measure.getValue();
 

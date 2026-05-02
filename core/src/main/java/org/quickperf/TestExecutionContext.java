@@ -16,6 +16,8 @@ import org.quickperf.annotation.DebugQuickPerf;
 import org.quickperf.annotation.DisableQuickPerf;
 import org.quickperf.annotation.DisplayAppliedAnnotations;
 import org.quickperf.annotation.FunctionalIteration;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.config.library.QuickPerfConfigs;
 import org.quickperf.config.library.SetOfAnnotationConfigs;
 import org.quickperf.perfrecording.ExecutionOrderOfPerfRecorders;
@@ -53,12 +55,20 @@ public class TestExecutionContext {
 
     private int runnerAllocationOffset;
 
+    private PropertyResolver propertyResolver;
+
     private TestExecutionContext() {}
 
     // TODO: RENAME METHOD AND REFACTOR
     // Used by QuickPerfSpringRunner
     public static TestExecutionContext buildNewJvmFrom(QuickPerfConfigs quickPerfConfigs
                                                      , Method testMethod) {
+        return buildNewJvmFrom(quickPerfConfigs, testMethod, SystemPropertyResolver.INSTANCE);
+    }
+
+    public static TestExecutionContext buildNewJvmFrom(QuickPerfConfigs quickPerfConfigs
+                                                     , Method testMethod
+                                                     , PropertyResolver propertyResolver) {
         SetOfAnnotationConfigs testAnnotationConfigs = quickPerfConfigs.getTestAnnotationConfigs();
         AnnotationsExtractor annotationsExtractor = AnnotationsExtractor.INSTANCE;
 
@@ -70,7 +80,8 @@ public class TestExecutionContext {
                                                             , testAnnotationConfigs
                                                             , perfAnnotations
                                                             , isTestMethodToBeLaunchedInASpecificJvm
-                                                            , runnerAllocationOffset);
+                                                            , runnerAllocationOffset
+                                                            , propertyResolver);
 
 
         if(testExecutionContext.jvmOptions == null) {
@@ -89,6 +100,13 @@ public class TestExecutionContext {
     public static TestExecutionContext buildFrom( QuickPerfConfigs quickPerfConfigs
                                                 , Method testMethod
                                                 , int runnerAllocationOffset) {
+        return buildFrom(quickPerfConfigs, testMethod, runnerAllocationOffset, SystemPropertyResolver.INSTANCE);
+    }
+
+    public static TestExecutionContext buildFrom( QuickPerfConfigs quickPerfConfigs
+                                                , Method testMethod
+                                                , int runnerAllocationOffset
+                                                , PropertyResolver propertyResolver) {
 
         SetOfAnnotationConfigs testAnnotationConfigs = quickPerfConfigs.getTestAnnotationConfigs();
         AnnotationsExtractor annotationsExtractor = AnnotationsExtractor.INSTANCE;
@@ -100,18 +118,23 @@ public class TestExecutionContext {
                        , testAnnotationConfigs
                        , perfAnnotations
                        , isTestMethodToBeLaunchedInASpecificJvm
-                       , runnerAllocationOffset);
+                       , runnerAllocationOffset
+                       , propertyResolver);
     }
 
     private static TestExecutionContext buildFrom(QuickPerfConfigs quickPerfConfigs
                                                 , SetOfAnnotationConfigs testAnnotationConfigs
                                                 , Annotation[] perfAnnotations
                                                 , boolean isTestMethodToBeLaunchedInASpecificJvm
-                                                , int runnerAllocationOffset) {
+                                                , int runnerAllocationOffset
+                                                , PropertyResolver propertyResolver) {
 
         TestExecutionContext testExecutionContext = new TestExecutionContext();
+        testExecutionContext.propertyResolver = propertyResolver != null
+                ? propertyResolver
+                : SystemPropertyResolver.INSTANCE;
 
-        if (quickPerfIsDisabled(perfAnnotations)) {
+        if (quickPerfIsDisabled(perfAnnotations, testExecutionContext.propertyResolver)) {
             testExecutionContext.quickPerfDisabled = true;
             return testExecutionContext;
         }
@@ -221,8 +244,13 @@ public class TestExecutionContext {
         return false;
     }
 
-    private static boolean quickPerfIsDisabled(Annotation[] perfAnnotations) {
-        if(SystemProperties.QUICK_PERF_DISABLED.evaluate()) {
+    private static boolean quickPerfIsDisabled(Annotation[] perfAnnotations, PropertyResolver resolver) {
+        PropertyResolver r = (resolver != null) ? resolver : SystemPropertyResolver.INSTANCE;
+        String raw = r.resolve("disableQuickPerf");
+        boolean disabledFromProp = (raw != null)
+                ? Boolean.parseBoolean(raw)
+                : SystemProperties.QUICK_PERF_DISABLED.evaluate();
+        if (disabledFromProp) {
             return true;
         }
         for (Annotation perfAnnotation : perfAnnotations) {
@@ -290,6 +318,10 @@ public class TestExecutionContext {
 
     public void setRunnerAllocationOffset(int runnerAllocationOffset) {
         this.runnerAllocationOffset = runnerAllocationOffset;
+    }
+
+    public PropertyResolver getPropertyResolver() {
+        return propertyResolver != null ? propertyResolver : SystemPropertyResolver.INSTANCE;
     }
 }
 

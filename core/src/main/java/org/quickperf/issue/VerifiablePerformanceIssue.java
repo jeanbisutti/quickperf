@@ -12,6 +12,7 @@
  */
 package org.quickperf.issue;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.measure.PerfMeasure;
 
 import java.lang.annotation.Annotation;
@@ -20,11 +21,12 @@ public interface VerifiablePerformanceIssue<A extends Annotation, V extends Perf
 
     VerifiablePerformanceIssue NO_VERIFIABLE_PERF_ISSUE = new VerifiablePerformanceIssue() {
         @Override
-        public PerfIssue verifyPerfIssue(Annotation annotation, PerfMeasure measure) {
+        public PerfIssue verifyPerfIssue(Annotation annotation, PerfMeasure measure,
+                                         PropertyResolver propertyResolver) {
             return PerfIssue.NONE;
         }
     };
 
-    PerfIssue verifyPerfIssue(A annotation, V measure);
+    PerfIssue verifyPerfIssue(A annotation, V measure, PropertyResolver propertyResolver);
 
 }

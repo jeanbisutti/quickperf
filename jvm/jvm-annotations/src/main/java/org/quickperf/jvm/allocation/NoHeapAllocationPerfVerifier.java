@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.allocation;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.annotations.ExpectNoHeapAllocation;
@@ -25,7 +26,8 @@ public class NoHeapAllocationPerfVerifier implements VerifiablePerformanceIssue<
     private final ByteAllocationMeasureFormatter byteAllocationMeasureFormatter = ByteAllocationMeasureFormatter.INSTANCE;
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectNoHeapAllocation annotation, Allocation measuredAllocation) {
+    public PerfIssue verifyPerfIssue(ExpectNoHeapAllocation annotation, Allocation measuredAllocation,
+                                     PropertyResolver propertyResolver) {
 
         if(!Allocation.ZERO.isEqualTo(measuredAllocation)) {
             String assertionMessage =

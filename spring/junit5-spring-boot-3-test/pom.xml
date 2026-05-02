@@ -55,6 +55,13 @@
 
         <dependency>
             <groupId>org.quickperf</groupId>
+            <artifactId>quick-perf-junit5-spring</artifactId>
+            <version>1.1.1-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.quickperf</groupId>
             <artifactId>quick-perf-springboot2-sql-starter</artifactId>
             <version>1.1.1-SNAPSHOT</version>
             <scope>test</scope>

@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.jmcrule;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.jfr.annotation.ExpectNoJvmIssue;
@@ -27,7 +28,8 @@ public class JmcRulesPerfVerifier implements VerifiablePerformanceIssue<ExpectNo
     private JmcRulesPerfVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectNoJvmIssue annotation, JmcRulesMeasure jmcRules) {
+    public PerfIssue verifyPerfIssue(ExpectNoJvmIssue annotation, JmcRulesMeasure jmcRules,
+                                     PropertyResolver propertyResolver) {
         int maxExpectedScore = annotation.score();
         List<Count> jmcRulesAsCount = jmcRules.getValue();
 

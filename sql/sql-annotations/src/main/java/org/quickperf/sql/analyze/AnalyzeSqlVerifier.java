@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.analyze;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.AnalyzeSql;
@@ -29,7 +30,8 @@ public class AnalyzeSqlVerifier implements VerifiablePerformanceIssue<AnalyzeSql
     }
 
     @Override
-    public PerfIssue verifyPerfIssue(AnalyzeSql annotation, SqlAnalysis sqlAnalysis) {
+    public PerfIssue verifyPerfIssue(AnalyzeSql annotation, SqlAnalysis sqlAnalysis,
+                                     PropertyResolver propertyResolver) {
         Class<? extends WriterFactory> writerFactoryClass = annotation.writerFactory();
 
         try (PrintWriter pw = PrintWriterBuilder.INSTANCE.buildPrintWriterFrom(writerFactoryClass)) {

@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.rss;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.allocation.Allocation;
@@ -28,7 +29,8 @@ public class ExpectMaxRssPerfVerifier implements VerifiablePerformanceIssue<Expe
     private ExpectMaxRssPerfVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxRSS annotation, ProcessStatus processStatus) {
+    public PerfIssue verifyPerfIssue(ExpectMaxRSS annotation, ProcessStatus processStatus,
+                                     PropertyResolver propertyResolver) {
 
         Allocation maxExpectedRss = new Allocation(annotation.value(), annotation.unit());
         Allocation measuredRss = new Allocation(Double.valueOf(processStatus.getRssInKb()), AllocationUnit.KILO_BYTE);

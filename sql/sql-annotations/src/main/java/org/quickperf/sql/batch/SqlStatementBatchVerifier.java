@@ -12,10 +12,12 @@
  */
 package org.quickperf.sql.batch;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectJdbcBatching;
 import org.quickperf.sql.framework.JdbcSuggestion;
+import org.quickperf.sql.select.analysis.SelectAnalysis;
 
 public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<ExpectJdbcBatching, SqlBatchSizes> {
 
@@ -24,7 +26,8 @@ public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<Exp
     private SqlStatementBatchVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectJdbcBatching annotation, SqlBatchSizes measuredSqlBatchSizes) {
+    public PerfIssue verifyPerfIssue(ExpectJdbcBatching annotation, SqlBatchSizes measuredSqlBatchSizes,
+                                     PropertyResolver propertyResolver) {
 
         int expectedBatchSize = annotation.batchSize();
 
@@ -36,16 +39,16 @@ public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<Exp
                                  , measuredBatchSizesAsArray);
         }
 
-        return verifyThatInsertUpdateDeleteExecutionAreBatched(measuredBatchSizesAsArray);
+        return verifyThatInsertUpdateDeleteExecutionAreBatched(measuredBatchSizesAsArray, propertyResolver);
 
     }
 
-    private PerfIssue verifyThatInsertUpdateDeleteExecutionAreBatched(int[] measuredBatchSizesAsArray) {
+    private PerfIssue verifyThatInsertUpdateDeleteExecutionAreBatched(int[] measuredBatchSizesAsArray, PropertyResolver propertyResolver) {
         for (int measuredBatchSize : measuredBatchSizesAsArray) {
             if (measuredBatchSize == 0) {
                 String description = "JDBC batching is disabled."
                                    + System.lineSeparator()
-                                   + JdbcSuggestion.BATCHING.getMessage()
+                                   + JdbcSuggestion.getBatchingMessage(SelectAnalysis.simplifiedSqlDisplay(propertyResolver))
                                    + System.lineSeparator()
                                    + "";
                 return new PerfIssue(description);

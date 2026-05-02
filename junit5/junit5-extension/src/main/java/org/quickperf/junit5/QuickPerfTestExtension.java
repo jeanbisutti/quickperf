@@ -18,6 +18,8 @@ import org.junit.jupiter.api.extension.InvocationInterceptor;
 import org.junit.jupiter.api.extension.ReflectiveInvocationContext;
 import org.quickperf.SystemProperties;
 import org.quickperf.TestExecutionContext;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.config.library.QuickPerfConfigs;
 import org.quickperf.config.library.QuickPerfConfigsLoader;
 import org.quickperf.config.library.SetOfAnnotationConfigs;
@@ -25,6 +27,7 @@ import org.quickperf.issue.TestIssue;
 import org.quickperf.issue.JvmOrTestIssue;
 import org.quickperf.issue.PerfIssuesEvaluator;
 import org.quickperf.issue.PerfIssuesToFormat;
+import org.quickperf.junit5.spi.PropertyResolverProvider;
 import org.quickperf.jvm.JVM;
 import org.quickperf.perfrecording.PerformanceRecording;
 import org.quickperf.reporter.QuickPerfReporter;
@@ -32,7 +35,12 @@ import org.quickperf.testlauncher.NewJvmTestLauncher;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ServiceLoader;
 
 public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInterceptor {
 
@@ -47,12 +55,43 @@ public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInt
 
     private final QuickPerfReporter quickPerfReporter = QuickPerfReporter.INSTANCE;
 
+    private static final List<PropertyResolverProvider> PROPERTY_RESOLVER_PROVIDERS = loadPropertyResolverProviders();
+
+    private static List<PropertyResolverProvider> loadPropertyResolverProviders() {
+        List<PropertyResolverProvider> providers = new ArrayList<>();
+        try {
+            ServiceLoader<PropertyResolverProvider> loader = ServiceLoader.load(PropertyResolverProvider.class);
+            for (Iterator<PropertyResolverProvider> it = loader.iterator(); it.hasNext(); ) {
+                providers.add(it.next());
+            }
+        } catch (Throwable t) {
+            // ignore: if SPI loading fails for any reason, fall back to system properties
+        }
+        return Collections.unmodifiableList(providers);
+    }
+
+    private PropertyResolver buildPropertyResolver(ExtensionContext extensionContext) {
+        for (PropertyResolverProvider provider : PROPERTY_RESOLVER_PROVIDERS) {
+            try {
+                PropertyResolver resolver = provider.tryBuild(extensionContext);
+                if (resolver != null) {
+                    return resolver;
+                }
+            } catch (Throwable t) {
+                // ignore and try next provider
+            }
+        }
+        return SystemPropertyResolver.INSTANCE;
+    }
+
     @Override
     public void beforeEach(ExtensionContext extensionContext) {
         int junit5AllocationOffset = findJunit5AllocationOffset();
+        PropertyResolver propertyResolver = buildPropertyResolver(extensionContext);
         TestExecutionContext testExecutionContext = TestExecutionContext.buildFrom(quickPerfConfigs
                                                             , extensionContext.getRequiredTestMethod()
-                                                            , junit5AllocationOffset);
+                                                            , junit5AllocationOffset
+                                                            , propertyResolver);
         extensionContext.getStore(NAMESPACE).put(TestExecutionContext.class, testExecutionContext);
     }
 

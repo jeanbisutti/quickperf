@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.allocation;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.annotations.ExpectMaxHeapAllocation;
@@ -25,7 +26,8 @@ public class MaxHeapAllocationPerfVerifier implements VerifiablePerformanceIssue
     private MaxHeapAllocationPerfVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxHeapAllocation annotation, Allocation measuredAllocation) {
+    public PerfIssue verifyPerfIssue(ExpectMaxHeapAllocation annotation, Allocation measuredAllocation,
+                                     PropertyResolver propertyResolver) {
 
         Allocation maxExpectedAllocation = new Allocation(annotation.value(), annotation.unit());
 

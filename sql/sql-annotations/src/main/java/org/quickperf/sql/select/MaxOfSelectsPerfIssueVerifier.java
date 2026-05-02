@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxSelect;
@@ -27,28 +28,29 @@ public class MaxOfSelectsPerfIssueVerifier implements VerifiablePerformanceIssue
     private MaxOfSelectsPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxSelect annotation, SelectAnalysis selectAnalysis) {
+    public PerfIssue verifyPerfIssue(ExpectMaxSelect annotation, SelectAnalysis selectAnalysis,
+                                     PropertyResolver propertyResolver) {
 
         Count maxExpectedSelect = new Count(annotation.value());
 
         Count executedSelectNumber = selectAnalysis.getSelectNumber();
 
         if(executedSelectNumber.isGreaterThan(maxExpectedSelect)) {
-            return buildPerfIssue(executedSelectNumber, maxExpectedSelect, selectAnalysis);
+            return buildPerfIssue(executedSelectNumber, maxExpectedSelect, selectAnalysis, propertyResolver);
         }
 
         return PerfIssue.NONE;
 
     }
 
-    private PerfIssue buildPerfIssue(Count measuredCount, Count expectedCount, SelectAnalysis selectAnalysis) {
+    private PerfIssue buildPerfIssue(Count measuredCount, Count expectedCount, SelectAnalysis selectAnalysis, PropertyResolver propertyResolver) {
 
         String description = aSqlPerfIssue().buildMaxOfStatementsDesc(measuredCount
                                                                     , expectedCount
                                                                     , "select");
 
         if (measuredCount.isGreaterThan(Count.ONE) && !selectAnalysis.hasOnlySameSelects()) {
-            description += SelectAnalysis.getNPlusOneSelectAlert();
+            description += SelectAnalysis.getNPlusOneSelectAlert(SelectAnalysis.simplifiedSqlDisplay(propertyResolver));
         }
 
         return new PerfIssue(description);

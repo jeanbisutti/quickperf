@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.delete;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxDelete;
@@ -26,7 +27,8 @@ public class MaxOfDeletesPerfIssueVerifier implements VerifiablePerformanceIssue
     private MaxOfDeletesPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxDelete annotation, Count measuredCount) {
+    public PerfIssue verifyPerfIssue(ExpectMaxDelete annotation, Count measuredCount,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

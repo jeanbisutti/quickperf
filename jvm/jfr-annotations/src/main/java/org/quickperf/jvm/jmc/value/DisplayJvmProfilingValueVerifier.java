@@ -18,6 +18,7 @@ import org.openjdk.jmc.common.item.IItemIterable;
 import org.openjdk.jmc.common.item.ItemFilters;
 import org.openjdk.jmc.flightrecorder.jdk.JdkFilters;
 import org.quickperf.SystemProperties;
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.jfr.annotation.ProfileJvm;
@@ -38,9 +39,10 @@ public class DisplayJvmProfilingValueVerifier implements
     }
 
     @Override
-    public PerfIssue verifyPerfIssue(ProfileJvm annotation, JfrEventsMeasure jfrEventsMeasure) {
+    public PerfIssue verifyPerfIssue(ProfileJvm annotation, JfrEventsMeasure jfrEventsMeasure,
+                                     PropertyResolver propertyResolver) {
 
-        if(!SystemProperties.SIMPLIFIED_JVM_PROFILE_DISPLAY.evaluate()) {
+        if(!simplifiedJvmProfileDisplay(propertyResolver)) {
 
             IItemCollection jfrEvents = jfrEventsMeasure.getValue();
             boolean tlabAndOutsideTlabEventsDisabled =  ! jfrEvents.apply(JdkFilters.ALLOC_OUTSIDE_TLAB).hasItems()
@@ -156,5 +158,15 @@ public class DisplayJvmProfilingValueVerifier implements
             youngGcCount += items.getItemCount();
         }
         return youngGcCount;
+    }
+
+    private static boolean simplifiedJvmProfileDisplay(PropertyResolver propertyResolver) {
+        if (propertyResolver != null) {
+            String raw = propertyResolver.resolve("limitQuickPerfJvmInfoOnConsole");
+            if (raw != null) {
+                return Boolean.parseBoolean(raw);
+            }
+        }
+        return SystemProperties.SIMPLIFIED_JVM_PROFILE_DISPLAY.evaluate();
     }
 }

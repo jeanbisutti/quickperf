@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.delete;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectDelete;
@@ -26,7 +27,8 @@ public class NumberOfSqlDeletePerfIssueVerifier implements VerifiablePerformance
     private NumberOfSqlDeletePerfIssueVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectDelete annotation, Count measuredCount) {
+    public PerfIssue verifyPerfIssue(ExpectDelete annotation, Count measuredCount,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.like;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.measure.BooleanMeasure;
@@ -24,7 +25,8 @@ public class HasLikeWithLeadingWildcardVerifier implements VerifiablePerformance
     private HasLikeWithLeadingWildcardVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(DisableLikeWithLeadingWildcard annotation, BooleanMeasure likeWithLeadingWildcardMeasure) {
+    public PerfIssue verifyPerfIssue(DisableLikeWithLeadingWildcard annotation, BooleanMeasure likeWithLeadingWildcardMeasure,
+                                     PropertyResolver propertyResolver) {
 
         if(likeWithLeadingWildcardMeasure.getValue()) {
             return new PerfIssue("Like with leading wildcard detected (% or _)");

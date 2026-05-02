@@ -14,6 +14,7 @@ package org.quickperf.time;
 
 import org.junit.Test;
 import org.quickperf.annotation.ExpectMaxExecutionTime;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.issue.PerfIssue;
 
 import java.lang.annotation.Annotation;
@@ -64,7 +65,7 @@ public class MaxExecutionTimeVerifierTest {
         seconds = 4;
         milliSeconds = 5;
 
-        PerfIssue perfIssue = maxExecutionTimeVerifier.verifyPerfIssue(annotation, measuredExecutionTime);
+        PerfIssue perfIssue = maxExecutionTimeVerifier.verifyPerfIssue(annotation, measuredExecutionTime, SystemPropertyResolver.INSTANCE);
 
         assertThat(perfIssue).isNotEqualTo(PerfIssue.NONE);
 

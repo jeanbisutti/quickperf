@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.bindparams;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.measure.BooleanMeasure;
@@ -25,7 +26,8 @@ public class DisableQueriesWithoutBindParametersVerifier implements VerifiablePe
     }
 
     @Override
-    public PerfIssue verifyPerfIssue(final DisableQueriesWithoutBindParameters annotation, final BooleanMeasure areAllParametersBound) {
+    public PerfIssue verifyPerfIssue(final DisableQueriesWithoutBindParameters annotation, final BooleanMeasure areAllParametersBound,
+                                     PropertyResolver propertyResolver) {
 
         if(!areAllParametersBound.getValue()) {
             return new PerfIssue("Query without bind parameters");

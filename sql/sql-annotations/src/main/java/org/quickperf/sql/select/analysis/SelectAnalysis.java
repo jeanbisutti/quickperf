@@ -13,6 +13,7 @@
 package org.quickperf.sql.select.analysis;
 
 import org.quickperf.SystemProperties;
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.measure.PerfMeasure;
 import org.quickperf.sql.framework.ClassPath;
 import org.quickperf.sql.framework.HibernateSuggestion;
@@ -47,11 +48,19 @@ public class SelectAnalysis implements PerfMeasure {
             return getNPlusOneSelectAlert();
         }
 
+        public String getSuggestionToFixIt(boolean simplifiedSqlDisplay) {
+            return getNPlusOneSelectAlert(simplifiedSqlDisplay);
+        }
+
     }
 
     public static String getNPlusOneSelectAlert() {
+        return getNPlusOneSelectAlert(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate());
+    }
 
-        if(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate()) {
+    public static String getNPlusOneSelectAlert(boolean simplifiedSqlDisplay) {
+
+        if(simplifiedSqlDisplay) {
             return "";
         }
 
@@ -60,6 +69,16 @@ public class SelectAnalysis implements PerfMeasure {
              + JdbcSuggestion.SERVER_ROUND_TRIPS.getMessage()
              + getNPlusOneFrameworkMessage();
 
+    }
+
+    public static boolean simplifiedSqlDisplay(PropertyResolver propertyResolver) {
+        if (propertyResolver != null) {
+            String raw = propertyResolver.resolve("limitQuickPerfSqlInfoOnConsole");
+            if (raw != null) {
+                return Boolean.parseBoolean(raw);
+            }
+        }
+        return SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate();
     }
 
     public static String getNPlusOneFrameworkMessage() {

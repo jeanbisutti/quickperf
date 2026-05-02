@@ -20,6 +20,8 @@ import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 import org.quickperf.SystemProperties;
 import org.quickperf.TestExecutionContext;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.config.library.QuickPerfConfigs;
 import org.quickperf.config.library.QuickPerfConfigsLoader;
 import org.quickperf.jvm.JVM;
@@ -55,13 +57,18 @@ public class QuickPerfJUnitRunner extends BlockJUnit4ClassRunner {
 
     @Override
     public Statement methodInvoker(FrameworkMethod frameworkMethod, Object test) {
+        return methodInvoker(frameworkMethod, test, SystemPropertyResolver.INSTANCE);
+    }
+
+    public Statement methodInvoker(FrameworkMethod frameworkMethod, Object test, PropertyResolver propertyResolver) {
         Method testMethod = frameworkMethod.getMethod();
 
         int runnerAllocationOffset = findJUnit4AllocationOffset();
 
         testExecutionContext = TestExecutionContext.buildFrom(quickPerfConfigs
                                                             , testMethod
-                                                            , runnerAllocationOffset);
+                                                            , runnerAllocationOffset
+                                                            , propertyResolver);
 
         if(testExecutionContext.isQuickPerfDisabled()) {
             return super.methodInvoker(frameworkMethod, test);

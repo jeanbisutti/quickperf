@@ -16,6 +16,8 @@ import net.ttddyy.dsproxy.ExecutionInfo;
 import net.ttddyy.dsproxy.QueryInfo;
 import net.ttddyy.dsproxy.QueryType;
 import org.quickperf.SystemProperties;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.PropertyResolverAware;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.PerfIssuesFormat;
 import org.quickperf.perfrecording.ViewablePerfRecordIfPerfIssue;
@@ -25,11 +27,21 @@ import org.quickperf.sql.update.columns.NumberOfUpdatedColumnsStatistics;
 import java.io.Serializable;
 import java.util.*;
 
-public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecordIfPerfIssue, Serializable {
+public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecordIfPerfIssue, PropertyResolverAware, Serializable {
 
     public static final SqlExecutions NONE = new SqlExecutions();
 
     private final Deque<SqlExecution> sqlExecutions = new ArrayDeque<>();
+
+    private transient PropertyResolver propertyResolver;
+
+    @Override
+    public void setPropertyResolver(PropertyResolver propertyResolver) {
+        if (this == NONE) {
+            return;
+        }
+        this.propertyResolver = propertyResolver;
+    }
 
     public void add(ExecutionInfo execInfo, List<QueryInfo> queries) {
         SqlExecution sqlExecution = new SqlExecution(execInfo, queries);
@@ -160,7 +172,7 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
     public String format(Collection<PerfIssue> perfIssues) {
         String standardFormatting = PerfIssuesFormat.STANDARD.format(perfIssues);
 
-        if(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate()) {
+        if(simplifiedSqlDisplay()) {
             return standardFormatting;
         }
 
@@ -171,6 +183,16 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
                 + System.lineSeparator()
                 + (noJdbcExecution() ? new DataSourceConfig().getMessage()
                                      : toString());
+    }
+
+    private boolean simplifiedSqlDisplay() {
+        if (propertyResolver != null) {
+            String raw = propertyResolver.resolve("limitQuickPerfSqlInfoOnConsole");
+            if (raw != null) {
+                return Boolean.parseBoolean(raw);
+            }
+        }
+        return SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate();
     }
 
     private boolean noJdbcExecution() {

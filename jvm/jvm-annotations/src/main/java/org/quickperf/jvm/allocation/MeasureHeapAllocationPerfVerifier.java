@@ -12,6 +12,7 @@
  */
 package org.quickperf.jvm.allocation;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.annotations.MeasureHeapAllocation;
@@ -32,7 +33,8 @@ public class MeasureHeapAllocationPerfVerifier implements VerifiablePerformanceI
     }
 
     @Override
-    public PerfIssue verifyPerfIssue(MeasureHeapAllocation annotation, Allocation measuredAllocation) {
+    public PerfIssue verifyPerfIssue(MeasureHeapAllocation annotation, Allocation measuredAllocation,
+                                     PropertyResolver propertyResolver) {
         String allocationAsString = byteAllocationMeasureFormatter.formatAndAppendAllocationInBytes(measuredAllocation);
         Class<? extends WriterFactory> writerFactoryClass = annotation.writerFactory();
         try (PrintWriter pw = PrintWriterBuilder.INSTANCE.buildPrintWriterFrom(writerFactoryClass)) {

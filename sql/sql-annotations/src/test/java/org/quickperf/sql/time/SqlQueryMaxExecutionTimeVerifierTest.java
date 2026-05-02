@@ -14,6 +14,7 @@ package org.quickperf.sql.time;
 
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxQueryExecutionTime;
@@ -33,7 +34,7 @@ public class SqlQueryMaxExecutionTimeVerifierTest {
         ExecutionTime sqlExecTime = new ExecutionTime(5, TimeUnit.MILLISECONDS);
 
         // WHEN
-        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime);
+        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime, SystemPropertyResolver.INSTANCE);
 
         // THEN
         Assertions.assertThat(PerfIssue.NONE).isNotEqualTo(perfIssue);
@@ -53,7 +54,7 @@ public class SqlQueryMaxExecutionTimeVerifierTest {
         ExecutionTime sqlExecTime = new ExecutionTime(1, TimeUnit.MILLISECONDS);
 
         // WHEN
-        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime);
+        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime, SystemPropertyResolver.INSTANCE);
 
         // THEN
         Assertions.assertThat(PerfIssue.NONE).isEqualTo(perfIssue);
@@ -70,7 +71,7 @@ public class SqlQueryMaxExecutionTimeVerifierTest {
         ExecutionTime sqlExecTime = new ExecutionTime(1, TimeUnit.MILLISECONDS);
 
         // WHEN
-        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime);
+        PerfIssue perfIssue = verifier.verifyPerfIssue(expectedMaxExecutionTime, sqlExecTime, SystemPropertyResolver.INSTANCE);
 
         // THEN
         Assertions.assertThat(PerfIssue.NONE).isEqualTo(perfIssue);

@@ -22,6 +22,8 @@ import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.*;
 import org.quickperf.annotation.FunctionalIteration;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.config.library.QuickPerfConfigsLoader;
 import org.quickperf.AnnotationsExtractor;
 import org.quickperf.TestExecutionContext;
@@ -33,7 +35,9 @@ import org.quickperf.SystemProperties;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
@@ -87,6 +91,7 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
              && !SystemProperties.TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
             testExecutionContext = TestExecutionContext.buildNewJvmFrom(quickPerfConfigs
                                                                       , testMethod
+                                                                      , buildForkParentPropertyResolver()
             );
             return NO_STATEMENT;
         }
@@ -102,6 +107,59 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
         return springRunnerWithQuickPerfFeatures.methodInvoker(frameworkMethod, test);
 
+    }
+
+    /**
+     * In the fork-parent path, Spring's {@code ApplicationContext} is not
+     * loaded, so we cannot read properties from {@code application.properties}
+     * or {@code application.yml}. As a best-effort, this method reads
+     * {@code @SpringBootTest(properties = ...)} values directly from the
+     * test class's annotations via reflection (so that {@code spring-boot}
+     * does not need to be on the runtime classpath of this module). System
+     * properties are used as a fallback.
+     */
+    private PropertyResolver buildForkParentPropertyResolver() {
+        Map<String, String> annotationProps = readSpringBootTestProperties(testClass);
+        if (annotationProps.isEmpty()) {
+            return SystemPropertyResolver.INSTANCE;
+        }
+        final Map<String, String> finalAnnotationProps = annotationProps;
+        return new PropertyResolver() {
+            @Override
+            public String resolve(String propertyName) {
+                String value = finalAnnotationProps.get(propertyName);
+                if (value != null) {
+                    return value;
+                }
+                return System.getProperty(propertyName);
+            }
+        };
+    }
+
+    private static Map<String, String> readSpringBootTestProperties(Class<?> testClass) {
+        Map<String, String> result = new HashMap<>();
+        for (Annotation annotation : testClass.getAnnotations()) {
+            if (!"org.springframework.boot.test.context.SpringBootTest".equals(annotation.annotationType().getName())) {
+                continue;
+            }
+            try {
+                String[] properties = (String[]) annotation.annotationType().getMethod("properties").invoke(annotation);
+                for (String prop : properties) {
+                    if (prop == null) {
+                        continue;
+                    }
+                    int eq = prop.indexOf('=');
+                    if (eq > 0) {
+                        result.put(prop.substring(0, eq).trim(), prop.substring(eq + 1).trim());
+                    } else if (eq < 0 && !prop.isEmpty()) {
+                        result.put(prop.trim(), "true");
+                    }
+                }
+            } catch (Throwable t) {
+                // best-effort: ignore and fall back
+            }
+        }
+        return result;
     }
 
     @Override

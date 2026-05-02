@@ -13,6 +13,7 @@
 package org.quickperf.jvm.allocation;
 
 import org.junit.Test;
+import org.quickperf.config.SystemPropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.jvm.annotations.ExpectMaxHeapAllocation;
@@ -36,7 +37,7 @@ public class MaxHeapAllocationPerfVerifierTest {
         VerifiablePerformanceIssue maxHeapAllocationPerfIssueVerifier = MaxHeapAllocationPerfVerifier.INSTANCE;
 
         @SuppressWarnings("unchecked")
-        PerfIssue perfIssue = maxHeapAllocationPerfIssueVerifier.verifyPerfIssue(annotation, measuredAllocation);
+        PerfIssue perfIssue = maxHeapAllocationPerfIssueVerifier.verifyPerfIssue(annotation, measuredAllocation, SystemPropertyResolver.INSTANCE);
 
         // THEN
         assertThat(perfIssue).isNotEqualTo(PerfIssue.NONE);

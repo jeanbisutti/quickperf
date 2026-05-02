@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.update.columns;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxUpdatedColumn;
@@ -24,7 +25,8 @@ public class MaxUpdatedColumnsPerfIssueVerifier implements VerifiablePerformance
     private MaxUpdatedColumnsPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectMaxUpdatedColumn annotation, Count maxSqlCountMeasure) {
+    public PerfIssue verifyPerfIssue(ExpectMaxUpdatedColumn annotation, Count maxSqlCountMeasure,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedCount = new Count(annotation.value());
 

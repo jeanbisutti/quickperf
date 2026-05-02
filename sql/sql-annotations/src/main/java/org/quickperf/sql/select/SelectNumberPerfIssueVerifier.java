@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.select;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectSelect;
@@ -25,21 +26,22 @@ public class SelectNumberPerfIssueVerifier implements VerifiablePerformanceIssue
     private SelectNumberPerfIssueVerifier() {}
 
     @Override
-    public PerfIssue verifyPerfIssue(ExpectSelect annotation, SelectAnalysis selectAnalysis) {
+    public PerfIssue verifyPerfIssue(ExpectSelect annotation, SelectAnalysis selectAnalysis,
+                                     PropertyResolver propertyResolver) {
 
         Count expectedSelectNumber = new Count(annotation.value());
 
         Count executedSelectNumber = selectAnalysis.getSelectNumber();
 
         if (!executedSelectNumber.isEqualTo(expectedSelectNumber)) {
-            return buildPerfIssue(executedSelectNumber, expectedSelectNumber, selectAnalysis);
+            return buildPerfIssue(executedSelectNumber, expectedSelectNumber, selectAnalysis, propertyResolver);
         }
 
         return PerfIssue.NONE;
 
     }
 
-    private PerfIssue buildPerfIssue(Count executedSelectNumber, Count expectedSelectNumber, SelectAnalysis selectAnalysis) {
+    private PerfIssue buildPerfIssue(Count executedSelectNumber, Count expectedSelectNumber, SelectAnalysis selectAnalysis, PropertyResolver propertyResolver) {
 
         String description = buildBaseDescription(executedSelectNumber, expectedSelectNumber);
 
@@ -47,7 +49,7 @@ public class SelectNumberPerfIssueVerifier implements VerifiablePerformanceIssue
            && executedSelectNumber.isGreaterThan(expectedSelectNumber)
            && !selectAnalysis.hasOnlySameSelects()
           ) {
-            description += SelectAnalysis.getNPlusOneSelectAlert();
+            description += SelectAnalysis.getNPlusOneSelectAlert(SelectAnalysis.simplifiedSqlDisplay(propertyResolver));
         }
 
         return new PerfIssue(description);

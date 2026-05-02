@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.statement;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.measure.BooleanMeasure;
@@ -24,7 +25,8 @@ public class NoStatementVerifier implements VerifiablePerformanceIssue<DisableSt
     private NoStatementVerifier() { }
 
     @Override
-    public PerfIssue verifyPerfIssue(DisableStatements annotation, BooleanMeasure noStatementExist) {
+    public PerfIssue verifyPerfIssue(DisableStatements annotation, BooleanMeasure noStatementExist,
+                                     PropertyResolver propertyResolver) {
 
         Boolean noStatement = noStatementExist.getValue();
         if(noStatement) {

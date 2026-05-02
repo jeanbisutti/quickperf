@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.time;
 
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.issue.PerfIssue;
 import org.quickperf.issue.VerifiablePerformanceIssue;
 import org.quickperf.sql.annotation.ExpectMaxQueryExecutionTime;
@@ -26,7 +27,8 @@ public class SqlQueryMaxExecutionTimeVerifier implements VerifiablePerformanceIs
 	private SqlQueryMaxExecutionTimeVerifier() {}
 
 	@Override
-	public PerfIssue verifyPerfIssue(ExpectMaxQueryExecutionTime annotation, ExecutionTime measure) {
+	public PerfIssue verifyPerfIssue(ExpectMaxQueryExecutionTime annotation, ExecutionTime measure,
+	                                 PropertyResolver propertyResolver) {
 		
 		ExecutionTime maxExpectedSqlExecutionTime = new ExecutionTime(annotation.thresholdInMilliSeconds(), TimeUnit.MILLISECONDS);
 		

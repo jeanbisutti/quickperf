@@ -13,6 +13,8 @@
 package org.quickperf.issue;
 
 import org.quickperf.*;
+import org.quickperf.config.PropertyResolver;
+import org.quickperf.config.PropertyResolverAware;
 import org.quickperf.config.library.SetOfAnnotationConfigs;
 import org.quickperf.measure.PerfMeasure;
 import org.quickperf.perfrecording.PerfRecord;
@@ -62,14 +64,14 @@ public class PerfIssuesEvaluator {
         Map<Annotation, PerfIssue> perfIssuesByAnnotation
                 = evaluatePerfIssuesByAnnotation(perfRecordByAnnotation, testExecutionContext, annotationConfigs);
 
-        return perfIssuesToFormatGroup(perfRecordByAnnotation, perfIssuesByAnnotation);
+        return perfIssuesToFormatGroup(perfRecordByAnnotation, perfIssuesByAnnotation, testExecutionContext.getPropertyResolver());
 
     }
 
     private Map<Annotation, PerfIssue> evaluatePerfIssuesByAnnotation(Map<Annotation, PerfRecord> perfRecordByAnnotation, TestExecutionContext testExecutionContext, SetOfAnnotationConfigs testAnnotationConfigs) {
         Map<Annotation, PerfMeasure> perfMeasureByAnnotation
                 = extractPerfMeasureByAnnotation(testAnnotationConfigs, perfRecordByAnnotation, testExecutionContext);
-        return evaluatePerfIssuesByAnnotation(perfMeasureByAnnotation, testAnnotationConfigs);
+        return evaluatePerfIssuesByAnnotation(perfMeasureByAnnotation, testAnnotationConfigs, testExecutionContext.getPropertyResolver());
     }
 
     private Map<Annotation, PerfRecord> buildPerfRecordByAnnotation(SetOfAnnotationConfigs testAnnotationConfigs, TestExecutionContext testExecutionContext) {
@@ -103,10 +105,14 @@ public class PerfIssuesEvaluator {
 
     private Collection<PerfIssuesToFormat> perfIssuesToFormatGroup(
             Map<Annotation, PerfRecord> perfRecordByAnnotation
-            , Map<Annotation, PerfIssue> perfIssuesByAnnotation) {
+            , Map<Annotation, PerfIssue> perfIssuesByAnnotation
+            , PropertyResolver propertyResolver) {
         List<PerfIssuesToFormat> perfIssuesToFormatGroup = new ArrayList<>();
         Map<PerfRecord, List<PerfIssue>> perfIssuesByPerfRecord = buildPerfIssuesByPerfRecord(perfRecordByAnnotation, perfIssuesByAnnotation);
         for (PerfRecord perfRecord : perfIssuesByPerfRecord.keySet()) {
+            if (perfRecord instanceof PropertyResolverAware) {
+                ((PropertyResolverAware) perfRecord).setPropertyResolver(propertyResolver);
+            }
             List<PerfIssue> perfIssues = perfIssuesByPerfRecord.get(perfRecord);
             PerfIssuesFormat perfIssuesFormat = retrievePerfIssuesFormat(perfRecord);
             PerfIssuesToFormat perfIssuesToFormat = new PerfIssuesToFormat(perfIssues, perfIssuesFormat);
@@ -171,10 +177,11 @@ public class PerfIssuesEvaluator {
 
     private Map<Annotation, PerfIssue> evaluatePerfIssuesByAnnotation(
             Map<Annotation, PerfMeasure> perfMeasuredByAnnotation
-            , SetOfAnnotationConfigs testAnnotationConfigs) {
+            , SetOfAnnotationConfigs testAnnotationConfigs
+            , PropertyResolver propertyResolver) {
         Map<Annotation, PerfIssue> perfIssueByAnnotation = new HashMap<>();
         for (Annotation annotation : perfMeasuredByAnnotation.keySet()) {
-            PerfIssue perfIssue = evaluatePerfIssue(perfMeasuredByAnnotation, testAnnotationConfigs, annotation);
+            PerfIssue perfIssue = evaluatePerfIssue(perfMeasuredByAnnotation, testAnnotationConfigs, annotation, propertyResolver);
             if(perfIssue != PerfIssue.NONE) {
                 perfIssueByAnnotation.put(annotation, perfIssue);
             }
@@ -185,10 +192,11 @@ public class PerfIssuesEvaluator {
     @SuppressWarnings("unchecked")
     private PerfIssue evaluatePerfIssue(Map<Annotation, PerfMeasure> perfMeasuredByAnnotation
             , SetOfAnnotationConfigs testAnnotationConfigs
-            , Annotation annotation) {
+            , Annotation annotation
+            , PropertyResolver propertyResolver) {
         PerfMeasure perfMeasure = perfMeasuredByAnnotation.get(annotation);
         VerifiablePerformanceIssue perfIssueVerifier = testAnnotationConfigs.retrievePerfIssuerVerifierFor(annotation);
-        return perfIssueVerifier.verifyPerfIssue(annotation, perfMeasure);
+        return perfIssueVerifier.verifyPerfIssue(annotation, perfMeasure, propertyResolver);
     }
 
 }
