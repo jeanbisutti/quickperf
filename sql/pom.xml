@@ -26,6 +26,7 @@
 
     <modules>
         <module>sql-annotations</module>
+        <module>sql-annotations-r2dbc</module>
         <module>sql-memory-test-util</module>
         <module>sql-hibernate-test-util</module>
         <module>sql-memory-test</module>
