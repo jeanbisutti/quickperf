@@ -30,8 +30,15 @@ public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
 
     @Override
     public void startRecording(TestExecutionContext testExecutionContext) {
-        SqlRecorderRegistry.INSTANCE.register(this);
-        sqlRepository = SqlRepositoryFactory.getSqlRepository(testExecutionContext);
+        SqlRecorderHook.register(this);
+        try {
+            SqlRecorderRegistry.INSTANCE.register(this);
+            sqlRepository = SqlRepositoryFactory.getSqlRepository(testExecutionContext);
+        } catch (RuntimeException startupFailure) {
+            SqlRecorderHook.unregister(this);
+            SqlRecorderRegistry.unregister(this);
+            throw startupFailure;
+        }
     }
 
     @Override
@@ -42,6 +49,7 @@ public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
 
     @Override
     public void stopRecording(TestExecutionContext testExecutionContext) {
+        SqlRecorderHook.unregister(this);
         SqlRecorderRegistry.unregister(this);
         WorkingFolder workingFolder = testExecutionContext.getWorkingFolder();
         sqlRepository.flush(workingFolder);

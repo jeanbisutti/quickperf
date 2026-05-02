@@ -81,6 +81,18 @@ public class ClassPath {
         return value.contains("micronaut-hibernate-jpa");
     }
 
+    public boolean containsR2dbcSpi() {
+        return value.contains("r2dbc-spi");
+    }
+
+    public boolean containsR2dbcProxy() {
+        return value.contains("r2dbc-proxy");
+    }
+
+    public boolean containsSpringDataR2dbc() {
+        return value.contains("spring-data-r2dbc");
+    }
+
     public boolean contains(QuickPerfDependency quickPerfDependency) {
         String quickPerfArtifactId = quickPerfDependency.getArtifactId();
         return value.contains(quickPerfArtifactId);
