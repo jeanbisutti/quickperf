@@ -89,7 +89,7 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
         if (      testMethodToBeLaunchedInASpecificJvm
               && !SystemProperties.TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
-            testExecutionContext = TestExecutionContext.buildNewJvmFrom(quickPerfConfigs, testMethod);
+            testExecutionContext = TestExecutionContext.buildNewJvmFrom(quickPerfConfigs, testMethod, buildForkParentPropertyResolver());
             return NO_STATEMENT;
         }
 
@@ -258,7 +258,7 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
         if (SystemProperties.TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
             QUICK_PERF_SPRING_RUNNER_FOR_SPECIFIC_JVM.runChild(frameworkMethod, notifier);
-        } else if(quickPerfFeaturesAreDisabled(annotations)) {
+        } else if(quickPerfFeaturesAreDisabled(annotations) || quickPerfFeaturesAreDisabledViaProperty()) {
             this.quickPerfFeaturesAreDisabled = true;
             this.springRunner = SpringRunnerWithCallableProtectedMethods
                     .buildSpringRunner(testClass);
@@ -301,6 +301,11 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
             }
         }
         return false;
+    }
+
+    private boolean quickPerfFeaturesAreDisabledViaProperty() {
+        String value = buildForkParentPropertyResolver().resolve("disableQuickPerf");
+        return Boolean.parseBoolean(value);
     }
 
     @Override
