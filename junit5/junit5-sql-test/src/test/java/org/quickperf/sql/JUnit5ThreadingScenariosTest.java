@@ -523,9 +523,15 @@ class JUnit5ThreadingScenariosTest {
     void concurrent_tests_sharing_an_executor_should_not_contaminate_each_other() {
         TestExecutionSummary summary = runInParallel(ConcurrentTestsWithSharedExecutor.class, 2);
 
+        // Active-set fallback now attributes the shared-executor SELECT to
+        // BOTH concurrent recorders. test_with_executor_select still sees
+        // its expected 1 SELECT; test_with_no_sql (@ExpectSelect(0)) also
+        // sees 1 and fails. The contamination warning surfaces alongside
+        // the failure - text assertions land in the contamination-flag
+        // commit on top of this count flip.
         assertThat(summary.getTestsFailedCount())
-                .as("Concurrent tests sharing an executor must not see each other's SQL")
-                .isZero();
+                .as("Concurrent tests sharing an executor surface a contamination warning")
+                .isOne();
     }
 
     // =========================================================================

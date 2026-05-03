@@ -14,69 +14,157 @@ package org.quickperf.sql.connection;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.quickperf.SystemProperties.TEST_CODE_EXECUTING_IN_NEW_JVM;
 
+/*
+ * Mirror of {@link org.quickperf.sql.SqlRecorderRegistry}'s dual-map design.
+ * Same per-thread fast path + process-wide active-set fallback. See that
+ * class's Javadoc for the full rationale.
+ *
+ * Difference from SqlRecorderRegistry: there is no contamination flag on
+ * connection listeners in PR1. Listener cross-test attribution is a real
+ * residual covered separately - see pr1-plan.md sections 2.2 and 5.
+ */
 public class ConnectionListenerRegistry {
 
     public static final ConnectionListenerRegistry INSTANCE = new ConnectionListenerRegistry();
 
-    private final Collection<ConnectionListener> connectionListenersOfTestJvm = new ArrayList<>();
+    // Forked-JVM branch (becomes thread-safe in PR1 - read on every JDBC
+    // operation; writes only at test setup / teardown).
+    private final List<ConnectionListener> connectionListenersOfTestJvm
+            = new CopyOnWriteArrayList<ConnectionListener>();
 
-    private static final ThreadLocal<Map<Class<? extends ConnectionListener>, ConnectionListener>> CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM =
-            new InheritableThreadLocal<Map<Class<? extends ConnectionListener>, ConnectionListener>>() {
-        @Override
-        protected Map<Class<? extends ConnectionListener>, ConnectionListener> initialValue() {
-            return new HashMap<>();
-        }
-        @Override
-        protected Map<Class<? extends ConnectionListener>, ConnectionListener> childValue(Map<Class<? extends ConnectionListener>, ConnectionListener> parentValue) {
-            return new HashMap<>(parentValue);
-        }
-    };
+    // Single-JVM branch: per-thread fast-path keyed by Thread.getId().
+    private static final ConcurrentMap<Long,
+                                       ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener>>
+            PER_THREAD_LISTENERS = new ConcurrentHashMap<Long,
+                                                        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener>>();
+
+    // Process-wide identity set of every live listener; iterated by worker
+    // threads on the JDBC hot path, written only on register / unregister.
+    private static final Set<ConnectionListener> ACTIVE_LISTENERS
+            = Collections.newSetFromMap(new ConcurrentHashMap<ConnectionListener, Boolean>());
 
     private ConnectionListenerRegistry() { }
 
     public void register(ConnectionListener connectionListener) {
-        if(TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
             connectionListenersOfTestJvm.add(connectionListener);
-        } else {
-            Map<Class<? extends ConnectionListener>, ConnectionListener> connectionListenerByType
-                    = CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM.get();
-            connectionListenerByType.put(connectionListener.getClass(), connectionListener);
+            ACTIVE_LISTENERS.add(connectionListener);
+            return;
         }
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> perThread
+                = PER_THREAD_LISTENERS.get(tid);
+        if (perThread == null) {
+            ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> fresh
+                    = new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>();
+            ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> previous
+                    = PER_THREAD_LISTENERS.putIfAbsent(tid, fresh);
+            perThread = (previous != null) ? previous : fresh;
+        }
+        // No displaced-listener eviction here: ConnectionListener has no
+        // contamination flag in PR1. The previous mapping (if any) is simply
+        // overwritten.
+        perThread.put(connectionListener.getClass(), connectionListener);
+        ACTIVE_LISTENERS.add(connectionListener);
     }
 
     public static void unregister(ConnectionListener connectionListener) {
-        if(!TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
-            Map<Class<? extends ConnectionListener>, ConnectionListener> connectionListenerByType
-                    = CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM.get();
-            connectionListenerByType.remove(connectionListener.getClass());
+        // Pinned compound-write order (I2): ACTIVE_LISTENERS first.
+        ACTIVE_LISTENERS.remove(connectionListener);
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            // Forked-JVM unregister: was previously a no-op; required for
+            // I10 (unregister-first ordering) to actually unpublish the
+            // listener before flush() runs in forked mode.
+            INSTANCE.connectionListenersOfTestJvm.remove(connectionListener);
+            return;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> perThread
+                = PER_THREAD_LISTENERS.get(tid);
+        if (perThread != null) {
+            perThread.remove(connectionListener.getClass(), connectionListener);
+            if (perThread.isEmpty()) {
+                PER_THREAD_LISTENERS.remove(tid, perThread);
+            }
         }
     }
 
     public Collection<ConnectionListener> getConnectionListeners() {
-        if(TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            // CopyOnWriteArrayList iterators are snapshot-based; safe to
+            // return the live reference.
             return connectionListenersOfTestJvm;
         }
-        Map<Class<? extends ConnectionListener>, ConnectionListener> connectionListenerByType
-                = CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM.get();
-        return connectionListenerByType.values();
-    }
-
-    public void clear() {
-        if(TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
-            connectionListenersOfTestJvm.clear();
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> perThread
+                = PER_THREAD_LISTENERS.get(tid);
+        if (perThread != null) {
+            // Test-thread fast path. Empty submap is the post-clear /
+            // post-unregister sentinel - do NOT fall through to the
+            // active-set fallback.
+            return new ArrayList<ConnectionListener>(perThread.values());
         }
-        CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM.remove();
+        // Worker-thread fallback: defensive copy avoids
+        // ConcurrentModificationException against concurrent register /
+        // unregister on the JDBC hot path.
+        return new ArrayList<ConnectionListener>(ACTIVE_LISTENERS);
     }
 
     public <T extends ConnectionListener> T getConnectionListenerOfType(Class<T> type) {
-        Map<Class<? extends ConnectionListener>, ConnectionListener> connectionListenerByType
-                = CONNECTION_LISTENER_BY_TYPE_WHEN_ONE_JVM.get();
-        return type.cast(connectionListenerByType.get(type));
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            for (ConnectionListener candidate : connectionListenersOfTestJvm) {
+                if (type.isInstance(candidate)) {
+                    return type.cast(candidate);
+                }
+            }
+            return null;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> perThread
+                = PER_THREAD_LISTENERS.get(tid);
+        if (perThread != null) {
+            // Test-thread branch. Return null on a type miss WITHOUT
+            // falling through to the worker fallback.
+            ConnectionListener hit = perThread.get(type);
+            return hit != null ? type.cast(hit) : null;
+        }
+        // Worker-thread fallback.
+        for (ConnectionListener candidate : ACTIVE_LISTENERS) {
+            if (type.isInstance(candidate)) {
+                return type.cast(candidate);
+            }
+        }
+        return null;
+    }
+
+    public void clear() {
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            for (ConnectionListener listener : connectionListenersOfTestJvm) {
+                ACTIVE_LISTENERS.remove(listener);
+            }
+            connectionListenersOfTestJvm.clear();
+            return;
+        }
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> previous
+                = PER_THREAD_LISTENERS.remove(tid);
+        if (previous != null) {
+            for (ConnectionListener listener : previous.values()) {
+                ACTIVE_LISTENERS.remove(listener);
+            }
+        }
+        // Empty-marker sentinel - same discipline as SqlRecorderRegistry.
+        PER_THREAD_LISTENERS.put(tid,
+                new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>());
     }
 
 }

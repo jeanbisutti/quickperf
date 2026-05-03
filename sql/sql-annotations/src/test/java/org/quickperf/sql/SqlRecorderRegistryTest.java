@@ -12,13 +12,22 @@
  */
 package org.quickperf.sql;
 
+import org.junit.After;
 import org.junit.Test;
 
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class SqlRecorderRegistryTest {
+
+    @After
+    public void tearDown() {
+        // Surefire runs this module with parallel=all, threadCount=5; clear
+        // any state this test left behind so it cannot leak into siblings.
+        SqlRecorderRegistry.INSTANCE.clear();
+    }
 
     @Test public void
     should_get_a_sql_recorder_from_its_type() {
@@ -49,6 +58,32 @@ public class SqlRecorderRegistryTest {
         // THEN
         Collection<SqlRecorder> sqlRecorders = SqlRecorderRegistry.INSTANCE.getSqlRecorders();
         assertThat(sqlRecorders).hasSize(0);
+
+    }
+
+    @Test public void
+    register_then_get_returns_recorder_on_unrelated_worker_thread() throws Exception {
+
+        // GIVEN — register on the test thread (Surefire pool thread).
+        final SqlRecorder testThreadRecorder = new PersistenceSqlRecorder();
+        SqlRecorderRegistry.INSTANCE.register(testThreadRecorder);
+
+        // WHEN — an unrelated worker (NOT a child of the test thread) reads
+        // the registry. The worker has no entry in PER_THREAD_RECORDERS, so
+        // it must fall back to ACTIVE_RECORDERS and find the recorder.
+        final AtomicReference<Collection<SqlRecorder>> workerView
+                = new AtomicReference<Collection<SqlRecorder>>();
+        Thread worker = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                workerView.set(SqlRecorderRegistry.INSTANCE.getSqlRecorders());
+            }
+        }, "registry-worker-fallback-smoke");
+        worker.start();
+        worker.join();
+
+        // THEN
+        assertThat(workerView.get()).contains(testThreadRecorder);
 
     }
 

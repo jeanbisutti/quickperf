@@ -100,8 +100,12 @@ class SpringBootThreadingScenariosJunit5Test {
                 runInParallel(CrossTestContaminationWithConcurrentAsync.class);
 
         // THEN
+        // Active-set fallback now attributes the @Async worker's SELECTs to
+        // BOTH concurrent recorders, so test_with_no_sql (@ExpectSelect(0))
+        // sees 3 selects and fails. The warning text assertions land in the
+        // contamination-flag commit on top of this count flip.
         assertThat(summary.getTestsFailedCount())
-                      .isZero();
+                      .isOne();
 
     }
 
@@ -113,8 +117,12 @@ class SpringBootThreadingScenariosJunit5Test {
                 runInParallel(CrossTestContaminationWithConcurrentRandomPort.class);
 
         // THEN
+        // Active-set fallback now attributes the Tomcat worker's SELECTs to
+        // BOTH concurrent recorders, so test_with_no_sql (@ExpectSelect(0))
+        // sees 3 selects and fails. The warning text assertions land in the
+        // contamination-flag commit on top of this count flip.
         assertThat(summary.getTestsFailedCount())
-                      .isZero();
+                      .isOne();
 
     }
 

@@ -30,8 +30,12 @@ public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
 
     @Override
     public void startRecording(TestExecutionContext testExecutionContext) {
-        SqlRecorderRegistry.INSTANCE.register(this);
+        // Publish-last (I13): fully initialise sqlRepository BEFORE register,
+        // so a worker thread that takes the active-set fallback during this
+        // construction window cannot observe `this` mid-construction and NPE
+        // on a still-null sqlRepository.
         sqlRepository = SqlRepositoryFactory.getSqlRepository(testExecutionContext);
+        SqlRecorderRegistry.INSTANCE.register(this);
     }
 
     @Override

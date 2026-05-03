@@ -12,6 +12,7 @@
  */
 package org.quickperf.sql.connection;
 
+import org.junit.After;
 import org.junit.Test;
 
 import java.util.Collection;
@@ -20,6 +21,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 public class ConnectionListenerRegistryTest {
+
+    @After
+    public void tearDown() {
+        // Surefire parallel=all: clear so this test never leaks into siblings.
+        ConnectionListenerRegistry.INSTANCE.clear();
+    }
 
     @Test public void
     should_get_a_connection_listener_from_its_type() {

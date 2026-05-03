@@ -12,6 +12,8 @@
  */
 package org.quickperf.spring.springboottest.controller;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.quickperf.junit5.QuickPerfTest;
 import org.quickperf.spring.springboottest.FootballApplication;
@@ -23,6 +25,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,12 +34,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = {FootballApplication.class})
 public class CrossTestContaminationWithConcurrentAsync {
 
+    // Both inner tests count down at @BeforeEach so that the SQL-firing test
+    // does not run its work until both recorders are simultaneously
+    // registered (the contamination trigger condition).
+    private static final CountDownLatch BOTH_REGISTERED = new CountDownLatch(2);
+
+    // Released by the SQL-firing test's @AfterEach AFTER its @Async worker
+    // has completed and its recorder has been unregistered. The no-SQL
+    // test awaits this so its assertion observes the post-flush state.
+    private static final CountDownLatch WORKER_DONE = new CountDownLatch(1);
+
     @Autowired
     private AsyncPlayerService asyncPlayerService;
+
+    @BeforeEach
+    void signalRegistered() {
+        BOTH_REGISTERED.countDown();
+    }
 
     @ExpectSelect(3)
     @Test
     void test_with_async_select() throws Exception {
+        // Wait until both tests are registered, so the @Async worker
+        // takes the active-set fallback with two distinct owners live.
+        assertThat(BOTH_REGISTERED.await(30, TimeUnit.SECONDS))
+                .as("both tests registered")
+                .isTrue();
         // SQL executes on a Spring @Async executor thread (not the test thread).
         // 1 SELECT for players + 2 SELECTs for lazy-loaded teams (N+1)
         CompletableFuture<List<PlayerWithTeamName>> future =
@@ -44,13 +68,19 @@ public class CrossTestContaminationWithConcurrentAsync {
         assertThat(players).hasSize(2);
     }
 
+    @AfterEach
+    void releaseWorkerDone() {
+        WORKER_DONE.countDown();
+    }
+
     @ExpectSelect(0)
     @Test
     void test_with_no_sql() throws InterruptedException {
-        // Keep this test's recorder active long enough for the concurrent
-        // test's @Async SQL to be recorded via ALL_ACTIVE_RECORDERS —
-        // which includes this test's recorder.
-        Thread.sleep(2000);
+        // Keep this test's recorder active until the @Async worker of the
+        // sibling test has flushed and unregistered, then run the
+        // @ExpectSelect(0) assertion. The latch replaces a brittle
+        // wall-clock Thread.sleep, removing slow-CI / debug-attach flakes.
+        WORKER_DONE.await(30, TimeUnit.SECONDS);
     }
 
 }
