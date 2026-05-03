@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class SpringBoot3TestNGLimitSqlDisplayTest {
 
-    @Test(enabled = false) // TODO QuickPerf v2 — TestNG-Spring property resolution out of scope per Plan-spring-property-resolution.md §7
+    @Test
     public void should_limit_sql_display_when_property_defined_in_application_properties() {
 
         // GIVEN
@@ -42,7 +42,7 @@ public class SpringBoot3TestNGLimitSqlDisplayTest {
 
     }
 
-    @Test(enabled = false) // TODO QuickPerf v2 — TestNG-Spring property resolution out of scope per Plan-spring-property-resolution.md §7
+    @Test
     public void should_limit_sql_display_when_property_defined_in_application_yml() {
 
         // GIVEN
@@ -62,7 +62,7 @@ public class SpringBoot3TestNGLimitSqlDisplayTest {
 
     }
 
-    @Test(enabled = false) // TODO QuickPerf v2 — TestNG-Spring property resolution out of scope per Plan-spring-property-resolution.md §7
+    @Test
     public void should_limit_sql_display_when_property_defined_in_spring_boot_test_properties() {
 
         // GIVEN

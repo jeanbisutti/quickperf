@@ -13,6 +13,7 @@
 package org.quickperf.testng;
 
 import org.quickperf.TestExecutionContext;
+import org.quickperf.config.PropertyResolver;
 import org.quickperf.config.library.QuickPerfConfigs;
 import org.quickperf.config.library.QuickPerfConfigsLoader;
 import org.quickperf.config.library.SetOfAnnotationConfigs;
@@ -22,6 +23,7 @@ import org.quickperf.issue.PerfIssuesToFormat;
 import org.quickperf.issue.TestIssue;
 import org.quickperf.perfrecording.PerformanceRecording;
 import org.quickperf.reporter.QuickPerfReporter;
+import org.quickperf.testng.spi.TestNGPropertyResolverLoader;
 import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
 import org.testng.ITestNGMethod;
@@ -54,8 +56,15 @@ public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
     private TestExecutionContext buildTestExecutionContextFrom(IInvokedMethod method) {
         ITestNGMethod testNGMethod = method.getTestMethod();
         Method testMethod = testNGMethod.getConstructorOrMethod().getMethod();
+        Object testInstance = testNGMethod.getInstance();
         int noAllocationOffsetBecauseOnlyOneJvm = 0;
-        return TestExecutionContext.buildFrom(quickPerfConfigs, testMethod, noAllocationOffsetBecauseOnlyOneJvm);
+        PropertyResolver propertyResolver =
+                TestNGPropertyResolverLoader.INSTANCE.build(testInstance, testMethod);
+        return TestExecutionContext.buildFrom(
+                  quickPerfConfigs
+                , testMethod
+                , noAllocationOffsetBecauseOnlyOneJvm
+                , propertyResolver);
     }
 
     @Override

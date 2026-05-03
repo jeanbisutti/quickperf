@@ -78,6 +78,16 @@
             </dependency>
             <dependency>
                 <groupId>org.quickperf</groupId>
+                <artifactId>quick-perf-junit5-spring</artifactId>
+                <version>1.1.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quickperf</groupId>
+                <artifactId>quick-perf-testng-spring</artifactId>
+                <version>1.1.1-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quickperf</groupId>
                 <artifactId>quick-perf-springboot1-sql-starter</artifactId>
                 <version>1.1.1-SNAPSHOT</version>
             </dependency>

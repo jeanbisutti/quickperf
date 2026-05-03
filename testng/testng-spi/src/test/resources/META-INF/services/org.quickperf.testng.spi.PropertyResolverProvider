@@ -1,0 +1,3 @@
+org.quickperf.testng.spi.fixtures.ThrowingProvider
+org.quickperf.testng.spi.fixtures.TypeAProvider
+org.quickperf.testng.spi.fixtures.TypeBProvider

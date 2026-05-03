@@ -30,6 +30,7 @@
     </properties>
 
     <modules>
+        <module>testng-spi</module>
         <module>testng-listener</module>
         <module>testng-test-util</module>
         <module>testng-sql-test</module>
