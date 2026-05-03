@@ -26,8 +26,20 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
 
     @Override
     public PerfIssue verifyPerfIssue(ExpectJdbcQueryExecution annotation, SqlAnalysis sqlAnalysis) {
+        return verify(annotation.value(), sqlAnalysis);
+    }
 
-        Count expectedExecutionNumber = new Count(annotation.value());
+    /**
+     * Package-private assertion logic shared with the {@link org.quickperf.sql.annotation.ExpectQueryExecution}
+     * alias verifier ({@link QueryExecutionVerifier}). Both annotations carry the same semantics, so they delegate
+     * here to avoid duplicating the rules.
+     *
+     * @param expectedValue the {@code value} declared by the annotation.
+     * @param sqlAnalysis   the SQL analysis recorded during the test execution.
+     */
+    static PerfIssue verify(int expectedValue, SqlAnalysis sqlAnalysis) {
+
+        Count expectedExecutionNumber = new Count(expectedValue);
         Count executionNumber = sqlAnalysis.getJdbcQueryExecutionNumber();
 
         if (!executionNumber.isEqualTo(expectedExecutionNumber)) {
@@ -41,7 +53,7 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
 
     }
 
-    private String buildBaseDescription(Count executionNumber, Count expectedExecutionNumber) {
+    private static String buildBaseDescription(Count executionNumber, Count expectedExecutionNumber) {
         boolean severalExpectedExecutions = expectedExecutionNumber.getValue() > 1;
         boolean severalExecutions = executionNumber.getValue() > 1;
         return    "You may think that there " + (severalExpectedExecutions ? "were" : "was")
@@ -51,7 +63,7 @@ public class JdbcQueryExecutionVerifier implements VerifiablePerformanceIssue<Ex
                 + "       " + "But there " + (severalExecutions ? "are" : "is") + " <" + executionNumber.getValue() + ">...";
     }
 
-    private String buildPotentialSuggestionToFix(SqlAnalysis sqlAnalysis, Count executionNumber, Count expectedExecutionNumber) {
+    private static String buildPotentialSuggestionToFix(SqlAnalysis sqlAnalysis, Count executionNumber, Count expectedExecutionNumber) {
         SelectAnalysis selectAnalysis = sqlAnalysis.getSelectAnalysis();
         SelectAnalysis.SameSelectTypesWithDifferentParamValues sameSelectTypesWithDifferentParamValues =
                 selectAnalysis.getSameSelectTypesWithDifferentParamValues();

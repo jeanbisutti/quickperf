@@ -25,22 +25,28 @@ public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<Exp
 
     @Override
     public PerfIssue verifyPerfIssue(ExpectJdbcBatching annotation, SqlBatchSizes measuredSqlBatchSizes) {
-
-        int expectedBatchSize = annotation.batchSize();
-
-        int[] measuredBatchSizesAsArray = measuredSqlBatchSizes.getValue();
-
-        boolean userHasGivenBatchSize = expectedBatchSize != -1;
-        if (userHasGivenBatchSize) {
-            return verifyBatchSize(expectedBatchSize
-                                 , measuredBatchSizesAsArray);
-        }
-
-        return verifyThatInsertUpdateDeleteExecutionAreBatched(measuredBatchSizesAsArray);
-
+        return verify(annotation.batchSize(), measuredSqlBatchSizes.getValue());
     }
 
-    private PerfIssue verifyThatInsertUpdateDeleteExecutionAreBatched(int[] measuredBatchSizesAsArray) {
+    /**
+     * Package-private assertion logic shared between {@link SqlStatementBatchVerifier} (the legacy
+     * {@link ExpectJdbcBatching} verifier) and {@link SqlQueryBatchingVerifier} (the alias
+     * {@link org.quickperf.sql.annotation.ExpectQueryBatching} verifier). Both annotations carry the same
+     * semantics, so they delegate here to avoid duplicating the rules.
+     *
+     * @param expectedBatchSize       the {@code batchSize} declared by the annotation; {@code -1} means
+     *                                "the user did not specify a size, just check that batching is enabled".
+     * @param measuredBatchSizesAsArray the actual batch sizes recorded during the test execution.
+     */
+    static PerfIssue verify(int expectedBatchSize, int[] measuredBatchSizesAsArray) {
+        boolean userHasGivenBatchSize = expectedBatchSize != -1;
+        if (userHasGivenBatchSize) {
+            return verifyBatchSize(expectedBatchSize, measuredBatchSizesAsArray);
+        }
+        return verifyThatInsertUpdateDeleteExecutionAreBatched(measuredBatchSizesAsArray);
+    }
+
+    private static PerfIssue verifyThatInsertUpdateDeleteExecutionAreBatched(int[] measuredBatchSizesAsArray) {
         for (int measuredBatchSize : measuredBatchSizesAsArray) {
             if (measuredBatchSize == 0) {
                 String description = "JDBC batching is disabled."
@@ -54,14 +60,14 @@ public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<Exp
         return PerfIssue.NONE;
     }
 
-    private int findNumberOfBatchSizeToCheck(int[] measuredBatchSizesAsArray) {
+    private static int findNumberOfBatchSizeToCheck(int[] measuredBatchSizesAsArray) {
         if(measuredBatchSizesAsArray.length == 1) {
             return 1;
         }
         return measuredBatchSizesAsArray.length - 1;
     }
 
-    private PerfIssue verifyBatchSize(int expectedBatchSize, int[] measuredBatchSizesAsArray) {
+    private static PerfIssue verifyBatchSize(int expectedBatchSize, int[] measuredBatchSizesAsArray) {
         int numberOfBatchSizeToCheck = findNumberOfBatchSizeToCheck(measuredBatchSizesAsArray);
 
         for (int i = 0; i < numberOfBatchSizeToCheck; i++) {
@@ -74,7 +80,7 @@ public class SqlStatementBatchVerifier implements VerifiablePerformanceIssue<Exp
         return PerfIssue.NONE;
     }
 
-    private PerfIssue buildNotRespectedBatchSizePerfIssue(int expectedBatchSize, int measuredBatchSize) {
+    private static PerfIssue buildNotRespectedBatchSizePerfIssue(int expectedBatchSize, int measuredBatchSize) {
         String description
             = "Expected batch size <" + expectedBatchSize
             + "> but is <" + measuredBatchSize + ">.";

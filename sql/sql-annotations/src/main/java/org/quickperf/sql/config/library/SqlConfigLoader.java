@@ -32,6 +32,9 @@ public class SqlConfigLoader implements QuickPerfConfigLoader {
         return Arrays.asList(
                   SqlAnnotationsConfigs.JDBC_QUERY_EXECUTION
                 , SqlAnnotationsConfigs.MAX_JDBC_QUERY_EXECUTION
+                , SqlAnnotationsConfigs.QUERY_EXECUTION
+                , SqlAnnotationsConfigs.MAX_QUERY_EXECUTION
+                , SqlAnnotationsConfigs.QUERY_BATCHING
                 , SqlAnnotationsConfigs.NUMBER_OF_SQL_SELECT
                 , SqlAnnotationsConfigs.NUMBER_OF_SQL_INSERT
                 , SqlAnnotationsConfigs.NUMBER_OF_SQL_UPDATE

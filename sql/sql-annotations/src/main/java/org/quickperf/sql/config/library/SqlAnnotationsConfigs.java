@@ -18,6 +18,7 @@ import org.quickperf.sql.analyze.AnalyzeSqlVerifier;
 import org.quickperf.sql.annotation.*;
 import org.quickperf.sql.batch.SqlStatementBatchRecorder;
 import org.quickperf.sql.batch.SqlStatementBatchVerifier;
+import org.quickperf.sql.batch.SqlQueryBatchingVerifier;
 import org.quickperf.sql.bindparams.AllParametersAreBoundExtractor;
 import org.quickperf.sql.bindparams.DisableQueriesWithoutBindParametersVerifier;
 import org.quickperf.sql.connection.ConnectionLeakListener;
@@ -66,11 +67,23 @@ class SqlAnnotationsConfigs {
 			.perfIssueVerifier(JdbcQueryExecutionVerifier.INSTANCE)
 			.build(ExpectJdbcQueryExecution.class);
 
+	static final AnnotationConfig QUERY_EXECUTION = new AnnotationConfig.Builder()
+			.perfRecorderClass(PersistenceSqlRecorder.class)
+			.perfMeasureExtractor(SqlAnalysisExtractor.INSTANCE)
+			.perfIssueVerifier(QueryExecutionVerifier.INSTANCE)
+			.build(ExpectQueryExecution.class);
+
 	static final AnnotationConfig MAX_JDBC_QUERY_EXECUTION = new AnnotationConfig.Builder()
 			.perfRecorderClass(PersistenceSqlRecorder.class)
 			.perfMeasureExtractor(SqlAnalysisExtractor.INSTANCE)
 			.perfIssueVerifier(MaxJdbcQueryExecutionVerifier.INSTANCE)
 			.build(ExpectMaxJdbcQueryExecution.class);
+
+	static final AnnotationConfig MAX_QUERY_EXECUTION = new AnnotationConfig.Builder()
+			.perfRecorderClass(PersistenceSqlRecorder.class)
+			.perfMeasureExtractor(SqlAnalysisExtractor.INSTANCE)
+			.perfIssueVerifier(MaxQueryExecutionVerifier.INSTANCE)
+			.build(ExpectMaxQueryExecution.class);
 
 	static final AnnotationConfig DISABLE_SAME_SQL_SELECTS = new AnnotationConfig.Builder()
 			.perfRecorderClass(PersistenceSqlRecorder.class)
@@ -138,6 +151,11 @@ class SqlAnnotationsConfigs {
             .perfRecorderClass(SqlStatementBatchRecorder.class)
             .perfIssueVerifier(SqlStatementBatchVerifier.INSTANCE)
             .build(ExpectJdbcBatching.class);
+
+    static final AnnotationConfig QUERY_BATCHING = new AnnotationConfig.Builder()
+            .perfRecorderClass(SqlStatementBatchRecorder.class)
+            .perfIssueVerifier(SqlQueryBatchingVerifier.INSTANCE)
+            .build(ExpectQueryBatching.class);
 
     static final AnnotationConfig NUMBER_OF_SQL_DELETE = new AnnotationConfig.Builder()
             .perfRecorderClass(PersistenceSqlRecorder.class)
