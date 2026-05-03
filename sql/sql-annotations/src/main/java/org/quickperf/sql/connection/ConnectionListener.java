@@ -19,7 +19,7 @@ import java.util.Properties;
 import java.util.concurrent.Executor;
 
 @SuppressWarnings({"EmptyMethod", "unused"})
-public abstract class ConnectionListener {
+public abstract class ConnectionListener implements SqlConnectionListener {
 
     public void theDatasourceGetsTheConnection(Connection connection) {
     }
@@ -139,6 +139,54 @@ public abstract class ConnectionListener {
     }
 
     public void setNetworkTimeout(Connection connection, Executor executor, int milliseconds) {
+    }
+
+    // ---------------------------------------------------------------------
+    // Source-neutral lifecycle callbacks (SqlConnectionListener bridge).
+    //
+    // Default implementations are no-ops so that existing JDBC subclasses
+    // continue to compile and behave unchanged. Subclasses interested in
+    // R2DBC events override the relevant on...() methods.
+    // ---------------------------------------------------------------------
+
+    @Override
+    public void onConnectionAcquired(SqlConnectionEvent event) {
+    }
+
+    @Override
+    public void onConnectionReleased(SqlConnectionEvent event) {
+    }
+
+    @Override
+    public void onTransactionBegan(SqlConnectionEvent event) {
+    }
+
+    @Override
+    public void onTransactionCommitted(SqlConnectionEvent event) {
+    }
+
+    @Override
+    public void onTransactionRolledBack(SqlConnectionEvent event) {
+    }
+
+    @Override
+    public void onAutoCommitChanged(SqlConnectionEvent event, boolean autoCommit) {
+    }
+
+    @Override
+    public void onIsolationLevelChanged(SqlConnectionEvent event, String level) {
+    }
+
+    @Override
+    public void onSavepointCreated(SqlConnectionEvent event, String name) {
+    }
+
+    @Override
+    public void onSavepointReleased(SqlConnectionEvent event, String name) {
+    }
+
+    @Override
+    public void onSavepointRolledBack(SqlConnectionEvent event, String name) {
     }
 
 }
