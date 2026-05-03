@@ -24,23 +24,44 @@ import org.quickperf.sql.update.columns.NumberOfUpdatedColumnsStatistics;
 
 import java.io.Serializable;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecordIfPerfIssue, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     public static final SqlExecutions NONE = new SqlExecutions();
 
-    private final Deque<SqlExecution> sqlExecutions = new ArrayDeque<>();
+    private final Deque<SqlExecution> sqlExecutions = new ConcurrentLinkedDeque<SqlExecution>();
+
+    /** O(1) size counter. ConcurrentLinkedDeque#size is O(n); we maintain an AtomicInteger
+     * incremented after addLast(...) so {@link #getNumberOfExecutions()} is constant time and
+     * thread-safe under concurrent writers. The pinned write order (addLast first, then
+     * incrementAndGet) keeps the counter as a lower bound on the deque size during the
+     * tearing window — never an upper bound. See pr1-plan.md §2.5 / I17. */
+    private final AtomicInteger executionCount = new AtomicInteger();
 
     public void add(ExecutionInfo execInfo, List<QueryInfo> queries) {
+        if (this == NONE) {
+            // Defence-in-depth: NONE is a JVM-wide-shared singleton; never mutate it.
+            // See pr1-plan.md §2.5 / I15.
+            return;
+        }
         SqlExecution sqlExecution = new SqlExecution(execInfo, queries);
         sqlExecutions.addLast(sqlExecution);
+        executionCount.incrementAndGet();
     }
 
     // Workaround: avoid duplicate call to retrieveNumberOfReturnedColumns within SqlExecution constructor
     // in add method by forcing the column count. Related commit https://github.com/quick-perf/quickperf/issues/141
     private void addWithoutCall(ExecutionInfo executionInfo, List<QueryInfo> queries){
+        if (this == NONE) {
+            return;
+        }
         SqlExecution sqlExecution = new SqlExecution(executionInfo, queries, 0);
         sqlExecutions.addLast(sqlExecution);
+        executionCount.incrementAndGet();
     }
 
     public SqlExecutions filterByQueryType(QueryType queryType) {
@@ -174,7 +195,7 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
     }
 
     private boolean noJdbcExecution() {
-        return sqlExecutions.size() == 0;
+        return executionCount.get() == 0;
     }
 
     @Override
@@ -183,7 +204,7 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
     }
 
     public int getNumberOfExecutions() {
-        return sqlExecutions.size();
+        return executionCount.get();
     }
 
 }
