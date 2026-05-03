@@ -22,17 +22,31 @@ import org.quickperf.sql.QueryTypeRetriever;
 import org.quickperf.sql.SqlRecorder;
 import org.quickperf.sql.SqlRecorderRegistry;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SqlStatementBatchRecorder implements SqlRecorder<SqlBatchSizes> {
 
     private static final String BATCH_FILE_NAME = "ExpectJdbcBatching.ser";
 
-    private boolean previousStatementsAreBatched = true;
+    private volatile boolean previousStatementsAreBatched = true;
 
-    /* int array is used to avoid boxing since a batch can contain a lot of
-       insert, delete or update sql orders.*/
-    private int[] differentBatchSizes = new int[0];
+    // LinkedHashSet preserves insertion order, which @ExpectJdbcBatching's
+    // verifier depends on: verifyBatchSize() checks every batch except the
+    // last (so the "first batch wins" position must be the chronologically
+    // first observed batch size). A ConcurrentHashMap-backed set would
+    // iterate in hash order and silently flip the check result for cases
+    // like 70 inserts batched as [30, 30, 10] - hash order would yield
+    // [10, 30] and verifyBatchSize would compare expected 30 to measured
+    // 10. Writes happen on a single thread (the test thread that fires
+    // SQL through the proxy datasource - PER_THREAD_RECORDERS guarantees
+    // only one writer per recorder instance); the synchronized wrapper
+    // adds a memory barrier between the writing thread and the assertion
+    // thread that later reads through findRecord().
+    private final Set<Integer> differentBatchSizes =
+            Collections.synchronizedSet(new LinkedHashSet<Integer>());
 
     @Override
     public void startRecording(TestExecutionContext testExecutionContext) {
@@ -44,7 +58,7 @@ public class SqlStatementBatchRecorder implements SqlRecorder<SqlBatchSizes> {
         SqlRecorderRegistry.unregister(this);
         if (testExecutionContext.testExecutionUsesTwoJVMs()) {
             WorkingFolder workingFolder = testExecutionContext.getWorkingFolder();
-            saveCharacteristicsOfBatchExecutions(differentBatchSizes, workingFolder);
+            saveCharacteristicsOfBatchExecutions(toIntArray(differentBatchSizes), workingFolder);
         }
     }
 
@@ -63,7 +77,7 @@ public class SqlStatementBatchRecorder implements SqlRecorder<SqlBatchSizes> {
                                                            , BATCH_FILE_NAME);
         }
 
-        return new SqlBatchSizes(differentBatchSizes);
+        return new SqlBatchSizes(toIntArray(differentBatchSizes));
     }
 
     @Override
@@ -73,30 +87,27 @@ public class SqlStatementBatchRecorder implements SqlRecorder<SqlBatchSizes> {
                     && isRequestTypeInsertOrUpdateOrDeleteType(query)
                 ) {
                 int batchSize = execInfo.getBatchSize();
-                if (isNewBatchSize(batchSize)) {
-                    differentBatchSizes = createTableWithNewBatchSize(batchSize);
-                }
+                differentBatchSizes.add(batchSize);
                 previousStatementsAreBatched = execInfo.isBatch();
             }
         }
     }
 
-    private int[] createTableWithNewBatchSize(int batchSize) {
-        int newTableLength = differentBatchSizes.length + 1;
-        int[] newTable = new int[newTableLength];
-        System.arraycopy(differentBatchSizes, 0, newTable
-                        , 0, differentBatchSizes.length);
-        newTable[newTableLength - 1] = batchSize;
-        return newTable;
-    }
-
-    private boolean isNewBatchSize(int batchSize) {
-        for (int currentBatchSize : differentBatchSizes) {
-            if (batchSize == currentBatchSize) {
-                return false;
-            }
+    private int[] toIntArray(Set<Integer> sizes) {
+        // Manual synchronization because Collections.synchronizedSet documents
+        // that iteration MUST be performed inside a synchronized(sizes) block
+        // - the wrapper synchronizes single operations but not multi-op
+        // iterators. Snapshot under the lock, then build the int[] without
+        // the lock held.
+        Integer[] snapshot;
+        synchronized (sizes) {
+            snapshot = sizes.toArray(new Integer[0]);
         }
-        return true;
+        int[] array = new int[snapshot.length];
+        for (int i = 0; i < snapshot.length; i++) {
+            array[i] = snapshot[i];
+        }
+        return array;
     }
 
     private boolean isRequestTypeInsertOrUpdateOrDeleteType(QueryInfo query) {
