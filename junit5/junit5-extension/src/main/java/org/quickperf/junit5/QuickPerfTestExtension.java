@@ -145,6 +145,8 @@ public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInt
         TestExecutionContext testExecutionContext = getTestExecutionContext(extensionContext);
         testExecutionContext.setRunnerAllocationOffset(0);
 
+        testExecutionContext.disableQuickPerfIfPropertyIsSet(buildPropertyResolver(extensionContext));
+
         if (testExecutionContext.isQuickPerfDisabled()) {
             invocation.proceed();
             return;
@@ -164,6 +166,7 @@ public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInt
                                     , ReflectiveInvocationContext<Method> invocationContext
                                     , ExtensionContext extensionContext) throws Throwable {
         TestExecutionContext testExecutionContext = getTestExecutionContext(extensionContext);
+        testExecutionContext.disableQuickPerfIfPropertyIsSet(buildPropertyResolver(extensionContext));
         if (testExecutionContext.isQuickPerfDisabled()) {
             invocation.proceed();
             return;
@@ -186,6 +189,7 @@ public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInt
         // So the annotation from the test factory method will be used on all dynamic tests produced by it.
 
         TestExecutionContext testExecutionContext = getTestExecutionContext(extensionContext);
+        testExecutionContext.disableQuickPerfIfPropertyIsSet(buildPropertyResolver(extensionContext));
         if (testExecutionContext.isQuickPerfDisabled()) {
             invocation.proceed();
             return;

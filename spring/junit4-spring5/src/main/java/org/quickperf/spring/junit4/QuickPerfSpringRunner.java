@@ -261,7 +261,7 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
         if (SystemProperties.TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
             QUICK_PERF_SPRING_RUNNER_FOR_SPECIFIC_JVM.runChild(frameworkMethod, notifier);
-        } else if(quickPerfFeaturesAreDisabled(annotations)) {
+        } else if(quickPerfFeaturesAreDisabled(annotations) || quickPerfFeaturesAreDisabledViaProperty()) {
             this.quickPerfFeaturesAreDisabled = true;
             this.springRunner = SpringRunnerWithCallableProtectedMethods
                                .buildSpringRunner(testClass);
@@ -304,6 +304,21 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
             }
         }
         return false;
+    }
+
+    /**
+     * In the fork-parent path the QuickPerf runner needs to know whether
+     * QuickPerf is disabled <em>before</em> Spring's {@code ApplicationContext}
+     * is loaded. Without this check, a test annotated with
+     * {@code @SpringBootTest(properties = "disableQuickPerf=true")} together
+     * with an annotation that requires a forked JVM (for example
+     * {@link org.quickperf.jvm.annotations.HeapSize}) would still be processed
+     * by QuickPerf and would NPE with an empty context. Reads the property via
+     * the same fork-parent resolver used by {@link #methodInvoker}.
+     */
+    private boolean quickPerfFeaturesAreDisabledViaProperty() {
+        String value = buildForkParentPropertyResolver().resolve("disableQuickPerf");
+        return Boolean.parseBoolean(value);
     }
 
     @Override

@@ -298,6 +298,27 @@ public class TestExecutionContext {
         return quickPerfDisabled;
     }
 
+    /**
+     * Re-checks the {@code disableQuickPerf} property using the supplied
+     * {@link PropertyResolver} and flips the disabled flag to {@code true}
+     * if the property is now set. This lets test runners that build the
+     * context before a Spring application context is fully available
+     * (e.g. the JUnit 5 extension's {@code beforeEach}) honor a disable
+     * directive coming from {@code @SpringBootTest(properties = ...)},
+     * {@code application.properties} or {@code application.yml} once the
+     * Spring environment has been resolved at intercept time.
+     */
+    public void disableQuickPerfIfPropertyIsSet(PropertyResolver resolver) {
+        if (quickPerfDisabled) {
+            return;
+        }
+        PropertyResolver effective = resolver != null ? resolver : SystemPropertyResolver.INSTANCE;
+        String value = effective.resolve("disableQuickPerf");
+        if (value != null && Boolean.parseBoolean(value)) {
+            quickPerfDisabled = true;
+        }
+    }
+
     public boolean areQuickPerfAnnotationsToBeDisplayed() {
         return quickPerfAnnotationsToBeDisplayed;
     }
