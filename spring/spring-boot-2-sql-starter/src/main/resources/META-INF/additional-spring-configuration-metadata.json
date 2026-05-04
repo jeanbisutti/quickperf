@@ -1,0 +1,30 @@
+{
+  "groups": [],
+  "properties": [
+    {
+      "name": "disableQuickPerf",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "When true, completely disables QuickPerf for the current test execution. Performance annotations (@ExpectSelect, @ProfileJvm, ...) become no-ops. Resolved from (in order) the disableQuickPerf JVM system property, @SpringBootTest(properties = ...), application.properties, and application.yml. Read at test time."
+    },
+    {
+      "name": "limitQuickPerfSqlInfoOnConsole",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "When true, restricts the verbosity of QuickPerf's SQL diagnostic output (executed queries, parameters, JDBC suggestions) printed to the test console. Resolved from -DlimitQuickPerfSqlInfoOnConsole, @SpringBootTest(properties = ...), application.properties, or application.yml."
+    },
+    {
+      "name": "limitQuickPerfJvmInfoOnConsole",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "When true, restricts the verbosity of QuickPerf's JVM-profiling diagnostic output (allocations, GC, exceptions, JVM details) printed to the test console. Resolved from -DlimitQuickPerfJvmInfoOnConsole, @SpringBootTest(properties = ...), application.properties, or application.yml."
+    },
+    {
+      "name": "quickperf.classPathJarThreshold",
+      "type": "java.lang.Integer",
+      "defaultValue": 2048,
+      "description": "Maximum length, in characters, of the java.class.path system property that QuickPerf will pass as-is to a forked JVM (used by annotations such as @HeapSize, @Xmx that require a separate JVM). When the actual classpath length exceeds this threshold, QuickPerf packages the entries into a temporary manifest-only JAR with a Class-Path attribute, side-stepping operating-system command-line length limits. Default: 2048. Today this property must be set via the -Dquickperf.classPathJarThreshold=... JVM system property; resolution from application.properties, application.yml, or @SpringBootTest(properties = ...) is not yet wired."
+    }
+  ],
+  "hints": []
+}

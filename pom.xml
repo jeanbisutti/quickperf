@@ -163,6 +163,13 @@
                             </includes>
                             <excludes>
                                 <exclude>src/test/resources/junit-platform.properties</exclude>
+                                <!--
+                                    QuickPerf relies on this **/META-INF/** exclusion to ship Spring Boot
+                                    configuration metadata JSON (additional-spring-configuration-metadata.json
+                                    and spring-configuration-metadata.json) from the spring-boot-*-sql-starter
+                                    modules without injecting an Apache 2.0 license header into the JSON.
+                                    See spring/Plan-spring-ide-property-autocompletion.md §4.8.
+                                -->
                                 <exclude>**/META-INF/**</exclude>
                             </excludes>
                         </licenseSet>
