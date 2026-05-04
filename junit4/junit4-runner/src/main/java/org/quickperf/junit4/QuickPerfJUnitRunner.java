@@ -14,6 +14,7 @@ package org.quickperf.junit4;
 
 import junit.runner.Version;
 import org.junit.Test;
+import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
@@ -102,6 +103,19 @@ public class QuickPerfJUnitRunner extends BlockJUnit4ClassRunner {
 
     public QuickPerfJUnitRunner(Class<?> klass) throws InitializationError {
         super(klass);
+    }
+
+    @Override
+    protected void runChild(FrameworkMethod method, RunNotifier notifier) {
+        // Claim the current Surefire pool thread as a QuickPerf test thread
+        // BEFORE methodBlock runs createTest() (which may load a Spring
+        // ApplicationContext and emit DDL) and BEFORE @Before runs (which
+        // may emit Hibernate / EntityManagerFactory schema generation SQL).
+        // Without this, that pre-recording SQL would fall through the
+        // registry's worker fallback and broadcast to sibling tests
+        // running concurrently under Surefire parallel=all.
+        SqlTestThreadMarker.markCurrentThreadAsSqlTestThread();
+        super.runChild(method, notifier);
     }
 
     @Override

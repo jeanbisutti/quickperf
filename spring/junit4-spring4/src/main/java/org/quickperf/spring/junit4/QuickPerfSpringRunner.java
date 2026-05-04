@@ -29,6 +29,7 @@ import org.quickperf.annotation.DisableQuickPerf;
 import org.quickperf.config.library.QuickPerfConfigs;
 import org.quickperf.config.library.SetOfAnnotationConfigs;
 import org.quickperf.junit4.MainJvmAfterJUnitStatement;
+import org.quickperf.junit4.SqlTestThreadMarker;
 import org.quickperf.SystemProperties;
 
 import java.lang.annotation.Annotation;
@@ -197,6 +198,15 @@ public class QuickPerfSpringRunner extends BlockJUnit4ClassRunner {
 
     @Override
     protected void runChild(FrameworkMethod frameworkMethod, RunNotifier notifier) {
+
+        // Claim the current Surefire pool thread as a QuickPerf test thread
+        // BEFORE methodBlock runs createTest() (which loads the Spring
+        // ApplicationContext - a Spring Boot @SpringBootTest context startup
+        // emits substantial DDL/DML on the test pool thread). Without this,
+        // that pre-recording SQL would fall through the registry's worker
+        // fallback and broadcast to sibling tests running concurrently
+        // under Surefire parallel=all.
+        SqlTestThreadMarker.markCurrentThreadAsSqlTestThread();
 
         Annotation[] annotations = retrieveAnnotations(frameworkMethod);
 
