@@ -100,20 +100,17 @@ class SpringBootThreadingScenariosJunit5Test {
                 runInParallel(CrossTestContaminationWithConcurrentAsync.class);
 
         // THEN
-        // Active-set fallback attributes the @Async worker's SELECTs to BOTH
-        // concurrent recorders, so test_with_no_sql (@ExpectSelect(0)) sees
-        // the sibling test's SQL and fails - alongside the cross-test
-        // contamination warning that QuickPerf prepends to the formatted
-        // perf-issue body.
+        // PR2 of the threading-fix sequence introduces QuickPerfContext.wrap and
+        // QuickPerfProxyBeanPostProcessor's auto-injected QuickPerfTaskDecorator
+        // on Spring's ThreadPoolTaskExecutor (the bean used by @Async). Each
+        // @Async dispatch now snapshots the submitting thread's per-thread
+        // recorder map and installs it on the worker, so the worker's SQL is
+        // attributed only to that test's recorder. Both inner tests pass
+        // cleanly even when run concurrently.
         assertThat(summary.getTestsFailedCount())
-                      .isOne();
-
-        String failureMessages = collectFailureMessages(summary);
-        assertThat(failureMessages)
-                      .as("Failure message contains the cross-test contamination warning")
-                      .contains("WARNING: SQL was recorded from a worker thread")
-                      .contains("@HeapSize")
-                      .contains("force a dedicated JVM");
+                      .isZero();
+        assertThat(summary.getTestsSucceededCount())
+                      .isEqualTo(2);
 
     }
 
