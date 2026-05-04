@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
  */
 public class QuickPerfDatabaseConnectionNeutralEventsTest {
 
-    private final RecordingNeutralListener neutralListener = new RecordingNeutralListener();
+    private RecordingNeutralListener neutralListener;
 
     private Connection delegate;
     private QuickPerfDatabaseConnection wrapper;
@@ -42,6 +42,7 @@ public class QuickPerfDatabaseConnectionNeutralEventsTest {
     public void setUp() {
         delegate = mock(Connection.class);
         wrapper = QuickPerfDatabaseConnection.buildFrom(delegate);
+        neutralListener = new RecordingNeutralListener(expectedId());
         ConnectionListenerHook.register(neutralListener);
     }
 
@@ -213,10 +214,19 @@ public class QuickPerfDatabaseConnectionNeutralEventsTest {
     }
 
     private static final class RecordingNeutralListener implements SqlConnectionListener {
+        private final String acceptedConnectionId;
         private final List<RecordedEvent> events = new ArrayList<>();
         Boolean lastBoolean;
         String lastIsolationLevel;
         String lastSavepointName;
+
+        RecordingNeutralListener(String acceptedConnectionId) {
+            this.acceptedConnectionId = acceptedConnectionId;
+        }
+
+        private boolean accepts(SqlConnectionEvent event) {
+            return acceptedConnectionId.equals(event.getConnectionId());
+        }
 
         synchronized List<EventOf> eventsFor(String connectionId) {
             List<EventOf> matched = new ArrayList<>();
@@ -238,39 +248,59 @@ public class QuickPerfDatabaseConnectionNeutralEventsTest {
         }
 
         @Override public synchronized void onConnectionAcquired(SqlConnectionEvent event) {
-            events.add(new RecordedEvent(EventOf.ACQUIRED, event));
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.ACQUIRED, event));
+            }
         }
         @Override public synchronized void onConnectionReleased(SqlConnectionEvent event) {
-            events.add(new RecordedEvent(EventOf.RELEASED, event));
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.RELEASED, event));
+            }
         }
         @Override public synchronized void onTransactionBegan(SqlConnectionEvent event) {
-            events.add(new RecordedEvent(EventOf.ACQUIRED, event));
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.ACQUIRED, event));
+            }
         }
         @Override public synchronized void onTransactionCommitted(SqlConnectionEvent event) {
-            events.add(new RecordedEvent(EventOf.TX_COMMITTED, event));
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.TX_COMMITTED, event));
+            }
         }
         @Override public synchronized void onTransactionRolledBack(SqlConnectionEvent event) {
-            events.add(new RecordedEvent(EventOf.TX_ROLLED_BACK, event));
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.TX_ROLLED_BACK, event));
+            }
         }
         @Override public synchronized void onAutoCommitChanged(SqlConnectionEvent event, boolean autoCommit) {
-            events.add(new RecordedEvent(EventOf.AUTO_COMMIT_CHANGED, event));
-            this.lastBoolean = autoCommit;
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.AUTO_COMMIT_CHANGED, event));
+                this.lastBoolean = autoCommit;
+            }
         }
         @Override public synchronized void onIsolationLevelChanged(SqlConnectionEvent event, String level) {
-            events.add(new RecordedEvent(EventOf.ISOLATION_CHANGED, event));
-            this.lastIsolationLevel = level;
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.ISOLATION_CHANGED, event));
+                this.lastIsolationLevel = level;
+            }
         }
         @Override public synchronized void onSavepointCreated(SqlConnectionEvent event, String name) {
-            events.add(new RecordedEvent(EventOf.SAVEPOINT_CREATED, event));
-            this.lastSavepointName = name;
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.SAVEPOINT_CREATED, event));
+                this.lastSavepointName = name;
+            }
         }
         @Override public synchronized void onSavepointReleased(SqlConnectionEvent event, String name) {
-            events.add(new RecordedEvent(EventOf.SAVEPOINT_RELEASED, event));
-            this.lastSavepointName = name;
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.SAVEPOINT_RELEASED, event));
+                this.lastSavepointName = name;
+            }
         }
         @Override public synchronized void onSavepointRolledBack(SqlConnectionEvent event, String name) {
-            events.add(new RecordedEvent(EventOf.SAVEPOINT_ROLLED_BACK, event));
-            this.lastSavepointName = name;
+            if (accepts(event)) {
+                events.add(new RecordedEvent(EventOf.SAVEPOINT_ROLLED_BACK, event));
+                this.lastSavepointName = name;
+            }
         }
     }
 

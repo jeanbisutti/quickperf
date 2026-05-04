@@ -20,13 +20,18 @@ public class TestConnectionProfiler implements RecordablePerformance<BooleanMeas
 
     private final ConnectionEventsProfiler connectionEventsProfiler;
 
+    private final R2dbcConnectionEventsProfilerListener r2dbcProfilerListener;
+
     public TestConnectionProfiler(AnnotationProfilingParameters annotationProfilingParameters) {
         ProfilingParameters profilingParameters = annotationProfilingParameters.getProfilingParameters();
         connectionEventsProfiler = new ConnectionEventsProfiler(profilingParameters);
+        r2dbcProfilerListener =
+                new R2dbcConnectionEventsProfilerListener(connectionEventsProfiler.getProfiler());
         if(annotationProfilingParameters.isBeforeAndAfterTestMethodExecution()) {
             connectionEventsProfiler.start();
         }
         ConnectionListenerRegistry.INSTANCE.register(connectionEventsProfiler);
+        ConnectionListenerHook.register(r2dbcProfilerListener);
     }
 
     @Override
@@ -47,6 +52,7 @@ public class TestConnectionProfiler implements RecordablePerformance<BooleanMeas
     @Override
     public void cleanResources() {
         ConnectionListenerRegistry.unregister(connectionEventsProfiler);
+        ConnectionListenerHook.unregister(r2dbcProfilerListener);
     }
 
 }

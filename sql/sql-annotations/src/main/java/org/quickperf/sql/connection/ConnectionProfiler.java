@@ -46,15 +46,29 @@ public class ConnectionProfiler {
 
     void profile(Connection connection, String eventDescription) {
         if (enabled) {
-            printConnectionEvent(connection, eventDescription);
+            String connectionDescription = buildConnectionDescription(connection);
+            printConnectionEvent(connectionDescription, eventDescription);
             if(stacktracedisplayConfig.isStackTraceDisplayed()) {
                 printStackTrace();
             }
         }
     }
 
-    private void printConnectionEvent(Connection connection, String eventDescription) {
-        String connectionDescription = buildConnectionDescription(connection);
+    /**
+     * Profiles a connection lifecycle event using a pre-formatted connection
+     * description (e.g., {@code "connection r2dbc-42"}). Used by R2DBC where
+     * no JDBC {@link Connection} instance is available.
+     */
+    void profile(String connectionDescription, String eventDescription) {
+        if (enabled) {
+            printConnectionEvent(connectionDescription, eventDescription);
+            if(stacktracedisplayConfig.isStackTraceDisplayed()) {
+                printStackTrace();
+            }
+        }
+    }
+
+    private void printConnectionEvent(String connectionDescription, String eventDescription) {
         String eventText = connectionDescription + " - " + eventDescription;
         printWriter.println(eventText);
         printWriter.flush();

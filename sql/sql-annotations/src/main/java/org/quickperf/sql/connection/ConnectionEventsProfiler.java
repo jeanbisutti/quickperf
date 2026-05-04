@@ -38,6 +38,15 @@ public class ConnectionEventsProfiler extends ConnectionListener {
         profiler = new ConnectionProfiler(stacktracedisplayConfig, printWriter);
     }
 
+    /**
+     * Returns the underlying {@link ConnectionProfiler} so that R2DBC-side
+     * listeners can share the same enabled flag, print writer, and stack-trace
+     * configuration.
+     */
+    ConnectionProfiler getProfiler() {
+        return profiler;
+    }
+
     public void start() {
         profiler.enables();
     }
