@@ -312,4 +312,96 @@ public class SqlRecorderRegistry {
         PER_THREAD_RECORDERS.put(tid, new ConcurrentHashMap<Class<? extends SqlRecorder>, SqlRecorder>());
     }
 
+    // ====================================================================
+    // Cross-thread snapshot API (PR2)
+    // --------------------------------------------------------------------
+    // Used by SqlRecorderContextSnapshotProvider to propagate the calling
+    // test thread's per-thread recorders to a worker thread that will run
+    // a wrapped task on the test's behalf.
+    //
+    // Empty-snapshot rule (CRITICAL): when the calling thread has no
+    // recorders registered, snapshotForCurrentThread returns an empty map
+    // and the provider's capture() returns null - the worker is left
+    // unchanged so the ACTIVE_RECORDERS broadcast fallback above (lines
+    // 183-194) still attributes the SQL. Installing an empty submap on the
+    // worker would short-circuit that fallback and silently drop SQL.
+    // ====================================================================
+
+    private static final Object NO_OP_SNAPSHOT_TOKEN = new Object();
+
+    private static final class SavedPriorSubmap {
+        final ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> prior;
+        SavedPriorSubmap(ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> prior) {
+            this.prior = prior;
+        }
+    }
+
+    /**
+     * Returns a defensive copy of the calling thread's per-thread recorders
+     * (a snapshot suitable for installing on another thread). Returns an
+     * empty map in forked-JVM mode and when the thread has no entry or only
+     * the empty post-clear() sentinel.
+     */
+    public Map<Class<? extends SqlRecorder>, SqlRecorder> snapshotForCurrentThread() {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return java.util.Collections.emptyMap();
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> perThread = PER_THREAD_RECORDERS.get(tid);
+        if (perThread == null || perThread.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+        return new java.util.HashMap<Class<? extends SqlRecorder>, SqlRecorder>(perThread);
+    }
+
+    /**
+     * Installs {@code snapshot} as the current thread's per-thread recorders
+     * and returns an opaque token to be passed back to
+     * {@link #restoreSnapshot(Object)} from the wrapper's finally block.
+     *
+     * <p>If {@code snapshot} is null or empty, this method does NOT touch
+     * {@code PER_THREAD_RECORDERS} (preserves the {@code ACTIVE_RECORDERS}
+     * broadcast fallback) and returns a sentinel; {@code restoreSnapshot}
+     * recognises the sentinel and is a no-op.
+     */
+    public Object installSnapshot(Map<Class<? extends SqlRecorder>, SqlRecorder> snapshot) {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return NO_OP_SNAPSHOT_TOKEN;
+        }
+        if (snapshot == null || snapshot.isEmpty()) {
+            return NO_OP_SNAPSHOT_TOKEN;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> fresh
+                = new ConcurrentHashMap<Class<? extends SqlRecorder>, SqlRecorder>(snapshot);
+        ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> prior = PER_THREAD_RECORDERS.put(tid, fresh);
+        return new SavedPriorSubmap(prior);
+    }
+
+    /**
+     * Reverses a prior {@link #installSnapshot(Map)} call. {@code token}
+     * MUST be the value returned by that call.
+     *
+     * <p>If the worker thread had no prior entry the entry is removed,
+     * leaving the thread in the same state we found it.
+     */
+    public void restoreSnapshot(Object token) {
+        if (token == NO_OP_SNAPSHOT_TOKEN) {
+            return;
+        }
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return;
+        }
+        if (!(token instanceof SavedPriorSubmap)) {
+            throw new IllegalArgumentException("Unrecognised snapshot token: " + token);
+        }
+        SavedPriorSubmap saved = (SavedPriorSubmap) token;
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (saved.prior == null) {
+            PER_THREAD_RECORDERS.remove(tid);
+        } else {
+            PER_THREAD_RECORDERS.put(tid, saved.prior);
+        }
+    }
+
 }
