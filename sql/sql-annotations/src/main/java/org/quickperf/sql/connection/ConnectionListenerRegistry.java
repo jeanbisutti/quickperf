@@ -15,7 +15,9 @@ package org.quickperf.sql.connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -193,6 +195,91 @@ public class ConnectionListenerRegistry {
         }
         PER_THREAD_LISTENERS.putIfAbsent(tid,
                 new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>());
+    }
+
+    // ====================================================================
+    // Cross-thread snapshot API (PR2)
+    // --------------------------------------------------------------------
+    // Mirror of SqlRecorderRegistry's snapshot API. Same empty-snapshot
+    // rule: snapshotForCurrentThread returns Collections.emptyMap() when
+    // nothing is registered, capture() returns null in that case, and
+    // installSnapshot(emptyMap) returns a no-op sentinel so the worker's
+    // ACTIVE_LISTENERS broadcast fallback is preserved.
+    // ====================================================================
+
+    private static final Object NO_OP_SNAPSHOT_TOKEN = new Object();
+
+    private static final class SavedPriorSubmap {
+        final ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> prior;
+        SavedPriorSubmap(ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> prior) {
+            this.prior = prior;
+        }
+    }
+
+    /**
+     * Returns a defensive copy of the calling thread's per-thread connection
+     * listeners. Returns {@link Collections#emptyMap()} in forked-JVM mode,
+     * when the thread has no entry, or when only the empty post-clear()
+     * sentinel is present.
+     */
+    public Map<Class<? extends ConnectionListener>, ConnectionListener> snapshotForCurrentThread() {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return Collections.emptyMap();
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> perThread
+                = PER_THREAD_LISTENERS.get(tid);
+        if (perThread == null || perThread.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return new HashMap<Class<? extends ConnectionListener>, ConnectionListener>(perThread);
+    }
+
+    /**
+     * Installs {@code snapshot} as the current thread's per-thread listeners
+     * and returns an opaque token to be passed back to
+     * {@link #restoreSnapshot(Object)} from the wrapper's finally block.
+     *
+     * <p>Empty / null inputs return a sentinel and do NOT touch
+     * {@code PER_THREAD_LISTENERS} so the worker's {@code ACTIVE_LISTENERS}
+     * broadcast fallback is preserved.
+     */
+    public Object installSnapshot(Map<Class<? extends ConnectionListener>, ConnectionListener> snapshot) {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return NO_OP_SNAPSHOT_TOKEN;
+        }
+        if (snapshot == null || snapshot.isEmpty()) {
+            return NO_OP_SNAPSHOT_TOKEN;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> fresh
+                = new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>(snapshot);
+        ConcurrentMap<Class<? extends ConnectionListener>, ConnectionListener> prior
+                = PER_THREAD_LISTENERS.put(tid, fresh);
+        return new SavedPriorSubmap(prior);
+    }
+
+    /**
+     * Reverses a prior {@link #installSnapshot(Map)} call. {@code token} MUST
+     * be the value returned by that call.
+     */
+    public void restoreSnapshot(Object token) {
+        if (token == NO_OP_SNAPSHOT_TOKEN) {
+            return;
+        }
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return;
+        }
+        if (!(token instanceof SavedPriorSubmap)) {
+            throw new IllegalArgumentException("Unrecognised snapshot token: " + token);
+        }
+        SavedPriorSubmap saved = (SavedPriorSubmap) token;
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (saved.prior == null) {
+            PER_THREAD_LISTENERS.remove(tid);
+        } else {
+            PER_THREAD_LISTENERS.put(tid, saved.prior);
+        }
     }
 
 }
