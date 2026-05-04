@@ -47,8 +47,17 @@ public class R2dbcConnectionEventsProfilerListener implements SqlConnectionListe
     @Override
     public void onConnectionAcquired(SqlConnectionEvent event) {
         if (isR2dbc(event)) {
-            profiler.profile(describe(event), CONNECTION_FACTORY + ".create()");
+            profiler.profile(describe(event), CONNECTION_FACTORY + ".create()" + formatAcquisitionDuration(event));
         }
+    }
+
+    private static String formatAcquisitionDuration(SqlConnectionEvent event) {
+        long nanos = event.getAcquisitionDurationNanos();
+        if (nanos <= 0L) {
+            return "";
+        }
+        long millis = nanos / 1_000_000L;
+        return " [time: " + millis + "ms]";
     }
 
     @Override

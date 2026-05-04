@@ -149,7 +149,7 @@ public class TestExecutionContext {
         return testExecutionContext;
     }
 
-    private static List<RecordablePerformance> buildPerfRecordersToExecute(SetOfAnnotationConfigs testAnnotationConfigs, Annotation[] perfAnnotations) {
+    static List<RecordablePerformance> buildPerfRecordersToExecute(SetOfAnnotationConfigs testAnnotationConfigs, Annotation[] perfAnnotations) {
         List<RecordablePerformance> perfRecordersToExecute = new ArrayList<>();
         Set<Class<? extends RecordablePerformance>> perfRecorderClasses = new HashSet<>();
         for (Annotation perfAnnotation : perfAnnotations) {
@@ -160,6 +160,7 @@ public class TestExecutionContext {
                                                                      , testAnnotationConfigs
                                                                       );
                 perfRecordersToExecute.add(perfRecorder);
+                perfRecorderClasses.add(perfRecorderClass);
             }
         }
         return perfRecordersToExecute;

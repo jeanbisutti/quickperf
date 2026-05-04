@@ -77,6 +77,8 @@ public final class R2dbcConnectionLifecycleListener implements ProxyExecutionLis
 
     private static final String R2DBC_ID_PREFIX = "r2dbc-";
 
+    private static final Object ACQUISITION_START_NANOS_KEY = "quickperf.acquisitionStartNanos";
+
     private final Supplier<Iterable<SqlConnectionListener>> listenersSupplier;
 
     /**
@@ -113,7 +115,14 @@ public final class R2dbcConnectionLifecycleListener implements ProxyExecutionLis
         if (method == null) {
             return;
         }
-        if (isConnectionMethod(method) && "close".equals(method.getName())) {
+        Class<?> declaringClass = method.getDeclaringClass();
+        String methodName = method.getName();
+
+        if (declaringClass == ConnectionFactory.class && "create".equals(methodName)) {
+            recordAcquisitionStart(info);
+            return;
+        }
+        if (isConnectionMethod(method) && "close".equals(methodName)) {
             String connectionId = connectionIdFrom(info);
             if (connectionId == null) {
                 return;
@@ -202,9 +211,51 @@ public final class R2dbcConnectionLifecycleListener implements ProxyExecutionLis
         if (connectionId == null) {
             return;
         }
-        SqlConnectionEvent event = SqlConnectionEvent.r2dbc(connectionId);
+        long acquisitionDurationNanos = extractDurationNanos(info);
+        SqlConnectionEvent event = (acquisitionDurationNanos > 0L)
+                ? SqlConnectionEvent.r2dbcAcquired(connectionId, acquisitionDurationNanos)
+                : SqlConnectionEvent.r2dbc(connectionId);
         for (SqlConnectionListener listener : listenersSupplier.get()) {
             listener.onConnectionAcquired(event);
+        }
+    }
+
+    private static void recordAcquisitionStart(MethodExecutionInfo info) {
+        try {
+            io.r2dbc.proxy.core.ValueStore valueStore = info.getValueStore();
+            if (valueStore != null) {
+                valueStore.put(ACQUISITION_START_NANOS_KEY, Long.valueOf(System.nanoTime()));
+            }
+        } catch (RuntimeException ignored) {
+            // value store unavailable — fall back to no timing
+        }
+    }
+
+    private static long extractDurationNanos(MethodExecutionInfo info) {
+        // r2dbc-proxy 1.1.4's ConnectionFactoryCallbackHandler creates a StopWatch but
+        // never calls start() before reading getElapsedDuration(), so
+        // info.getExecuteDuration() always returns Duration.ZERO for create(). Time
+        // it ourselves via beforeMethod/afterMethod using the per-execution ValueStore.
+        try {
+            io.r2dbc.proxy.core.ValueStore valueStore = info.getValueStore();
+            if (valueStore != null) {
+                Long startNanos = valueStore.get(ACQUISITION_START_NANOS_KEY, Long.class);
+                if (startNanos != null) {
+                    long elapsed = System.nanoTime() - startNanos.longValue();
+                    return elapsed > 0L ? elapsed : 0L;
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // fall through to the proxy-supplied duration
+        }
+        java.time.Duration duration = info.getExecuteDuration();
+        if (duration == null) {
+            return 0L;
+        }
+        try {
+            return duration.toNanos();
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
         }
     }
 

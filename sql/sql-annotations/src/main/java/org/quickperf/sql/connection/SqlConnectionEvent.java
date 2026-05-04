@@ -47,10 +47,13 @@ public final class SqlConnectionEvent {
 
     private final long timestampMillis;
 
+    private final long acquisitionDurationNanos;
+
     private SqlConnectionEvent(String connectionId,
                                Source source,
                                Throwable stackTraceMarker,
-                               long timestampMillis) {
+                               long timestampMillis,
+                               long acquisitionDurationNanos) {
         if (connectionId == null) {
             throw new IllegalArgumentException("connectionId must not be null");
         }
@@ -61,26 +64,42 @@ public final class SqlConnectionEvent {
         this.source = source;
         this.stackTraceMarker = stackTraceMarker;
         this.timestampMillis = timestampMillis;
+        this.acquisitionDurationNanos = acquisitionDurationNanos;
     }
 
     /** Builds a JDBC event without stack-trace capture. */
     public static SqlConnectionEvent jdbc(String connectionId) {
-        return new SqlConnectionEvent(connectionId, Source.JDBC, null, System.currentTimeMillis());
+        return new SqlConnectionEvent(connectionId, Source.JDBC, null, System.currentTimeMillis(), 0L);
     }
 
     /** Builds a JDBC event with the supplied stack-trace marker. */
     public static SqlConnectionEvent jdbc(String connectionId, Throwable stackTraceMarker) {
-        return new SqlConnectionEvent(connectionId, Source.JDBC, stackTraceMarker, System.currentTimeMillis());
+        return new SqlConnectionEvent(connectionId, Source.JDBC, stackTraceMarker, System.currentTimeMillis(), 0L);
     }
 
     /** Builds an R2DBC event without stack-trace capture. */
     public static SqlConnectionEvent r2dbc(String connectionId) {
-        return new SqlConnectionEvent(connectionId, Source.R2DBC, null, System.currentTimeMillis());
+        return new SqlConnectionEvent(connectionId, Source.R2DBC, null, System.currentTimeMillis(), 0L);
     }
 
     /** Builds an R2DBC event with the supplied stack-trace marker. */
     public static SqlConnectionEvent r2dbc(String connectionId, Throwable stackTraceMarker) {
-        return new SqlConnectionEvent(connectionId, Source.R2DBC, stackTraceMarker, System.currentTimeMillis());
+        return new SqlConnectionEvent(connectionId, Source.R2DBC, stackTraceMarker, System.currentTimeMillis(), 0L);
+    }
+
+    /**
+     * Builds an R2DBC connection-acquired event annotated with the duration
+     * of the underlying {@code ConnectionFactory.create()} reactive call,
+     * measured in nanoseconds. Used by the R2DBC connection-lifecycle listener
+     * to surface acquisition timing through {@code @ProfileConnection}.
+     *
+     * @param connectionId opaque connection id assigned by the R2DBC bridge.
+     * @param acquisitionDurationNanos elapsed time of {@code create()} in
+     *                                 nanoseconds; values {@code <= 0} are
+     *                                 treated as unknown/unavailable.
+     */
+    public static SqlConnectionEvent r2dbcAcquired(String connectionId, long acquisitionDurationNanos) {
+        return new SqlConnectionEvent(connectionId, Source.R2DBC, null, System.currentTimeMillis(), acquisitionDurationNanos);
     }
 
     public String getConnectionId() {
@@ -100,12 +119,22 @@ public final class SqlConnectionEvent {
         return timestampMillis;
     }
 
+    /**
+     * @return the elapsed time of the connection acquisition in nanoseconds,
+     *         or {@code 0} when not measured (every event other than the
+     *         R2DBC connection-acquired event).
+     */
+    public long getAcquisitionDurationNanos() {
+        return acquisitionDurationNanos;
+    }
+
     @Override
     public String toString() {
         return "SqlConnectionEvent{"
                 + "connectionId='" + connectionId + '\''
                 + ", source=" + source
                 + ", timestampMillis=" + timestampMillis
+                + ", acquisitionDurationNanos=" + acquisitionDurationNanos
                 + '}';
     }
 
