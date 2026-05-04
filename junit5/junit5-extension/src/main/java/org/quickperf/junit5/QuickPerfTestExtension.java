@@ -12,6 +12,7 @@
  */
 package org.quickperf.junit5;
 
+import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.InvocationInterceptor;
@@ -34,7 +35,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 
-public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInterceptor {
+public class QuickPerfTestExtension implements BeforeAllCallback, BeforeEachCallback, InvocationInterceptor {
 
     private static final ExtensionContext.Namespace NAMESPACE =
             ExtensionContext.Namespace.create(QuickPerfTestExtension.class);
@@ -48,7 +49,25 @@ public class QuickPerfTestExtension implements BeforeEachCallback, InvocationInt
     private final QuickPerfReporter quickPerfReporter = QuickPerfReporter.INSTANCE;
 
     @Override
+    public void beforeAll(ExtensionContext extensionContext) {
+        // Claim the current Surefire pool thread as a QuickPerf test thread
+        // BEFORE any @BeforeAll / class-level setup fires (Spring SpringExtension
+        // lazily creates the ApplicationContext here, Hibernate boots the
+        // EntityManagerFactory, Flyway/Liquibase migrations and
+        // @Sql(BEFORE_TEST_CLASS) fixtures run, ...). Without this, that early
+        // SQL would fall through the registry's worker fallback and broadcast
+        // to every sibling test recorder live in the process under
+        // Surefire parallel=all / JUnit 5 parallel=concurrent.
+        SqlTestThreadMarker.markCurrentThreadAsSqlTestThread();
+    }
+
+    @Override
     public void beforeEach(ExtensionContext extensionContext) {
+        // Claim the current Surefire pool thread BEFORE user @BeforeEach runs
+        // (Hibernate per-test schema reset, Spring @Sql(BEFORE_TEST_METHOD)
+        // fixtures, ...). The marker is idempotent (no-op when the thread is
+        // already claimed) so calling it both here and in beforeAll is safe.
+        SqlTestThreadMarker.markCurrentThreadAsSqlTestThread();
         int junit5AllocationOffset = findJunit5AllocationOffset();
         TestExecutionContext testExecutionContext = TestExecutionContext.buildFrom(quickPerfConfigs
                                                             , extensionContext.getRequiredTestMethod()
