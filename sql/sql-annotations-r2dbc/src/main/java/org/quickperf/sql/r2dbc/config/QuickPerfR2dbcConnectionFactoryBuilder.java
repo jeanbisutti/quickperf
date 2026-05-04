@@ -13,6 +13,8 @@
 package org.quickperf.sql.r2dbc.config;
 
 import io.r2dbc.proxy.ProxyConnectionFactory;
+import io.r2dbc.proxy.callback.ProxyConfig;
+import io.r2dbc.proxy.callback.QuickPerfProxyFactoryFactory;
 import io.r2dbc.spi.ConnectionFactory;
 import org.quickperf.sql.r2dbc.R2dbcQuickPerfListener;
 
@@ -55,8 +57,12 @@ public final class QuickPerfR2dbcConnectionFactoryBuilder {
         if (original == null) {
             throw new IllegalArgumentException("original ConnectionFactory must not be null");
         }
+        ProxyConfig proxyConfig = ProxyConfig.builder()
+                .proxyFactoryFactory(new QuickPerfProxyFactoryFactory())
+                .build();
+        proxyConfig.addListener(new R2dbcQuickPerfListener(beanName));
         return ProxyConnectionFactory.builder(original)
-                .listener(new R2dbcQuickPerfListener(beanName))
+                .proxyConfig(proxyConfig)
                 .build();
     }
 

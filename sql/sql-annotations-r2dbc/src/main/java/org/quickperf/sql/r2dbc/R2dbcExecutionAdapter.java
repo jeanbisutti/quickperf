@@ -36,8 +36,12 @@ import java.util.List;
  * <ul>
  *   <li>{@link ExecutionInfo#getDataSourceName()} is set to {@code "r2dbc:" + beanName}
  *       so JDBC and R2DBC executions remain distinguishable in reports.</li>
- *   <li>{@link ExecutionInfo#getResult()} is left {@code null}. {@link org.quickperf.sql.SqlExecution}
- *       short-circuits its column count to 0 when {@code result == null}.</li>
+ *   <li>{@link ExecutionInfo#getResult()} is set to a synthetic {@link java.sql.ResultSet}
+ *       that exposes the previously-recorded R2DBC column count via
+ *       {@code getMetaData().getColumnCount()}, or left {@code null} when no column count
+ *       was observed (update statements, failed executions).
+ *       {@link org.quickperf.sql.SqlExecution} short-circuits its column count to 0 when
+ *       {@code result == null}.</li>
  *   <li>{@link QueryInfo#getQuery()} carries the rewritten SQL with positional /
  *       named placeholders replaced by {@code ?}.</li>
  *   <li>{@link QueryInfo#getParametersList()} contains one
@@ -72,8 +76,10 @@ final class R2dbcExecutionAdapter {
         execInfo.setDataSourceName("r2dbc:" + (beanName == null ? "connectionFactory" : beanName));
 
         ConnectionInfo connectionInfo = info.getConnectionInfo();
+        String connectionId = null;
         if (connectionInfo != null) {
-            execInfo.setConnectionId(connectionInfo.getConnectionId());
+            connectionId = connectionInfo.getConnectionId();
+            execInfo.setConnectionId(connectionId);
         }
 
         Duration duration = info.getExecuteDuration();
@@ -87,6 +93,11 @@ final class R2dbcExecutionAdapter {
         execInfo.setBatchSize(info.getBatchSize());
 
         execInfo.setStatementType(detectStatementType(info));
+
+        long columnCount = ColumnCountStore.drain(connectionId, info);
+        if (columnCount > 0L) {
+            execInfo.setResult(R2dbcSyntheticStatement.resultWithColumnCount(columnCount));
+        }
 
         List<QueryInfo> queries = adaptQueries(info.getQueries());
         return new Adapted(execInfo, queries);

@@ -122,7 +122,7 @@ public class R2dbcExecutionAdapterTest {
     }
 
     @Test
-    public void result_is_left_null_so_SqlExecution_skips_resultset_metadata_lookup() {
+    public void result_is_left_null_when_no_column_count_was_recorded() {
         QueryExecutionInfo info = MockQueryExecutionInfo.builder()
                 .queries(Collections.singletonList(new QueryInfo("SELECT 1")))
                 .executeDuration(Duration.ZERO)
@@ -132,6 +132,28 @@ public class R2dbcExecutionAdapterTest {
         R2dbcExecutionAdapter.Adapted adapted = R2dbcExecutionAdapter.adapt(info, "cf");
 
         assertThat(adapted.executionInfo.getResult()).isNull();
+    }
+
+    @Test
+    public void result_is_a_synthetic_resultset_when_a_column_count_was_recorded() throws java.sql.SQLException {
+        String connectionId = "conn-" + java.util.UUID.randomUUID();
+        ConnectionInfo conn = MockConnectionInfo.builder().connectionId(connectionId).build();
+        QueryExecutionInfo info = MockQueryExecutionInfo.builder()
+                .connectionInfo(conn)
+                .queries(Collections.singletonList(new QueryInfo("SELECT a, b, c FROM t")))
+                .executeDuration(Duration.ZERO)
+                .type(ExecutionType.STATEMENT)
+                .build();
+
+        ColumnCountStore.recordOnce(connectionId, info, 3L);
+        R2dbcExecutionAdapter.Adapted adapted = R2dbcExecutionAdapter.adapt(info, "cf");
+
+        Object result = adapted.executionInfo.getResult();
+        assertThat(result).isInstanceOf(java.sql.ResultSet.class);
+        java.sql.ResultSet rs = (java.sql.ResultSet) result;
+        assertThat(rs.getMetaData().getColumnCount()).isEqualTo(3);
+        // store entry for this (connectionId, qei) was drained
+        assertThat(ColumnCountStore.drain(connectionId, info)).isZero();
     }
 
     @Test

@@ -13,6 +13,8 @@
 package org.quickperf.spring.boot.r2dbc;
 
 import io.r2dbc.proxy.ProxyConnectionFactory;
+import io.r2dbc.proxy.callback.ProxyConfig;
+import io.r2dbc.proxy.callback.QuickPerfProxyFactoryFactory;
 import io.r2dbc.spi.Closeable;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.Wrapped;
@@ -87,8 +89,12 @@ public class QuickPerfR2dbcProxyBeanPostProcessor implements BeanPostProcessor, 
         }
 
         ConnectionFactory target = (ConnectionFactory) bean;
+        ProxyConfig proxyConfig = ProxyConfig.builder()
+                .proxyFactoryFactory(new QuickPerfProxyFactoryFactory())
+                .build();
+        proxyConfig.addListener(new R2dbcQuickPerfListener(beanName));
         ConnectionFactory r2dbcProxiedFactory = ProxyConnectionFactory.builder(target)
-                .listener(new R2dbcQuickPerfListener(beanName))
+                .proxyConfig(proxyConfig)
                 .build();
 
         Class<?> targetClass = target.getClass();
