@@ -34,6 +34,8 @@ import java.util.Collection;
 
 public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
 
+    private static final String TEST_EXECUTION_CONTEXT_ATTRIBUTE = QuickPerfSqlTestNGListener.class.getName() + ".testExecutionContext";
+
     private final QuickPerfConfigs quickPerfConfigs = QuickPerfConfigsLoader.INSTANCE.loadQuickPerfConfigs();
 
     private final PerfIssuesEvaluator perfIssuesEvaluator = PerfIssuesEvaluator.INSTANCE;
@@ -42,14 +44,12 @@ public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
 
     private final QuickPerfReporter quickPerfReporter = QuickPerfReporter.INSTANCE;
 
-    private TestExecutionContext testExecutionContext;
-
     @Override
     public void beforeInvocation(IInvokedMethod method, ITestResult testResult) {
         TestExecutionContext testExecutionContext = buildTestExecutionContextFrom(method);
-        this.testExecutionContext = testExecutionContext;
-        if (!this.testExecutionContext.isQuickPerfDisabled()) {
-            performanceRecording.start(this.testExecutionContext);
+        testResult.setAttribute(TEST_EXECUTION_CONTEXT_ATTRIBUTE, testExecutionContext);
+        if (!testExecutionContext.isQuickPerfDisabled()) {
+            performanceRecording.start(testExecutionContext);
         }
     }
 
@@ -69,13 +69,15 @@ public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
 
     @Override
     public void afterInvocation(IInvokedMethod method, ITestResult testResult) {
-        if (this.testExecutionContext.isQuickPerfDisabled()) {
+        TestExecutionContext testExecutionContext =
+                (TestExecutionContext) testResult.getAttribute(TEST_EXECUTION_CONTEXT_ATTRIBUTE);
+        if (testExecutionContext == null || testExecutionContext.isQuickPerfDisabled()) {
             return;
         }
-        quickPerfProcessingAfterMethodExecution(testResult);
+        quickPerfProcessingAfterMethodExecution(testResult, testExecutionContext);
     }
 
-    private void quickPerfProcessingAfterMethodExecution(ITestResult testResult) {
+    private void quickPerfProcessingAfterMethodExecution(ITestResult testResult, TestExecutionContext testExecutionContext) {
 
         performanceRecording.stop(testExecutionContext);
 
@@ -90,7 +92,7 @@ public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
 
         testExecutionContext.cleanResources();
 
-        reportIssues(testResult, jvmOrTestIssue, groupOfPerfIssuesToFormat);
+        reportIssues(testResult, jvmOrTestIssue, groupOfPerfIssuesToFormat, testExecutionContext);
 
     }
 
@@ -100,7 +102,7 @@ public class QuickPerfSqlTestNGListener implements IInvokedMethodListener {
         return JvmOrTestIssue.buildFrom(testIssue);
     }
 
-    private void reportIssues(ITestResult testResult, JvmOrTestIssue jvmOrTestIssue, Collection<PerfIssuesToFormat> groupOfPerfIssuesToFormat) {
+    private void reportIssues(ITestResult testResult, JvmOrTestIssue jvmOrTestIssue, Collection<PerfIssuesToFormat> groupOfPerfIssuesToFormat, TestExecutionContext testExecutionContext) {
         try {
             quickPerfReporter.report(jvmOrTestIssue, groupOfPerfIssuesToFormat, testExecutionContext);
         } catch (Throwable throwable) {
