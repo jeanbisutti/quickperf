@@ -39,6 +39,67 @@ public class QuickPerfJUnitRunner extends BlockJUnit4ClassRunner {
 
     private TestExecutionContext testExecutionContext;
 
+    // Reflection-based hook into SqlRecorderRegistry.markTestThread() so that
+    // the SQL recorder registry can claim the current Surefire pool thread
+    // BEFORE @Before runs. Without this, a @Before that emits SQL (Hibernate
+    // EntityManagerFactory creation, schema generation, etc.) before
+    // start()'s register() call would fall through the registry's worker
+    // fallback and broadcast its DDL/DML to every recorder currently live
+    // in the static ACTIVE_RECORDERS map - contaminating sibling tests
+    // running concurrently under Surefire parallel=all. Reflection is used
+    // so this junit4-runner module does not gain a hard dependency on
+    // sql-annotations (the runner is also used for JVM-only tests).
+    private static final java.lang.reflect.Method SQL_REGISTRY_MARK_TEST_THREAD_METHOD;
+    private static final Object SQL_REGISTRY_INSTANCE;
+    private static final java.lang.reflect.Method CONNECTION_LISTENER_REGISTRY_MARK_TEST_THREAD_METHOD;
+    private static final Object CONNECTION_LISTENER_REGISTRY_INSTANCE;
+    static {
+        java.lang.reflect.Method method = null;
+        Object instance = null;
+        try {
+            Class<?> registryClass = Class.forName("org.quickperf.sql.SqlRecorderRegistry");
+            java.lang.reflect.Field instanceField = registryClass.getField("INSTANCE");
+            instance = instanceField.get(null);
+            method = registryClass.getMethod("markTestThread");
+        } catch (Throwable ignored) {
+            // sql-annotations is not on the classpath - this is a JVM-only
+            // setup. No-op: there is no SqlRecorderRegistry to mark.
+        }
+        SQL_REGISTRY_MARK_TEST_THREAD_METHOD = method;
+        SQL_REGISTRY_INSTANCE = instance;
+
+        java.lang.reflect.Method listenerMethod = null;
+        Object listenerInstance = null;
+        try {
+            Class<?> listenerRegistryClass = Class.forName("org.quickperf.sql.connection.ConnectionListenerRegistry");
+            java.lang.reflect.Field instanceField = listenerRegistryClass.getField("INSTANCE");
+            listenerInstance = instanceField.get(null);
+            listenerMethod = listenerRegistryClass.getMethod("markTestThread");
+        } catch (Throwable ignored) {
+            // sql-annotations is not on the classpath - this is a JVM-only
+            // setup. No-op: there is no ConnectionListenerRegistry to mark.
+        }
+        CONNECTION_LISTENER_REGISTRY_MARK_TEST_THREAD_METHOD = listenerMethod;
+        CONNECTION_LISTENER_REGISTRY_INSTANCE = listenerInstance;
+    }
+
+    private static void markCurrentThreadAsSqlTestThread() {
+        if (SQL_REGISTRY_MARK_TEST_THREAD_METHOD != null) {
+            try {
+                SQL_REGISTRY_MARK_TEST_THREAD_METHOD.invoke(SQL_REGISTRY_INSTANCE);
+            } catch (Throwable ignored) {
+                // best-effort: marker installation must never fail a test
+            }
+        }
+        if (CONNECTION_LISTENER_REGISTRY_MARK_TEST_THREAD_METHOD != null) {
+            try {
+                CONNECTION_LISTENER_REGISTRY_MARK_TEST_THREAD_METHOD.invoke(CONNECTION_LISTENER_REGISTRY_INSTANCE);
+            } catch (Throwable ignored) {
+                // best-effort: marker installation must never fail a test
+            }
+        }
+    }
+
     public QuickPerfJUnitRunner(Class<?> klass) throws InitializationError {
         super(klass);
     }
@@ -107,7 +168,14 @@ public class QuickPerfJUnitRunner extends BlockJUnit4ClassRunner {
                 || testExecutionContext.testExecutionUsesOneJVM()
                 || testExecutionContext.isQuickPerfDisabled()
            ) {
-            return super.withBefores(frameworkMethod, testInstance, statement);
+            final Statement junitBefores = super.withBefores(frameworkMethod, testInstance, statement);
+            return new Statement() {
+                @Override
+                public void evaluate() throws Throwable {
+                    markCurrentThreadAsSqlTestThread();
+                    junitBefores.evaluate();
+                }
+            };
         }
 
         return NO_STATEMENT;

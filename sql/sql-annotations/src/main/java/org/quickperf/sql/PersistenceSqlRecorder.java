@@ -19,10 +19,17 @@ import org.quickperf.WorkingFolder;
 import org.quickperf.sql.repository.SqlRepository;
 import org.quickperf.sql.repository.SqlRepositoryFactory;
 
+import java.io.PrintStream;
 import java.util.List;
 
 
 public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
+
+    /** Test seam: stderr the cross-test contamination warning is written
+     * to. Defaults to {@link System#err}; tests substitute a capturing
+     * PrintStream and restore the previous value afterwards. Volatile so
+     * the swap is visible across threads under Surefire parallel=all. */
+    static volatile PrintStream WARNING_SINK = System.err;
 
     private final DataSourceProxyVerifier datasourceProxyVerifier = new DataSourceProxyVerifier();
 
@@ -35,6 +42,11 @@ public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
         // construction window cannot observe `this` mid-construction and NPE
         // on a still-null sqlRepository.
         sqlRepository = SqlRepositoryFactory.getSqlRepository(testExecutionContext);
+        // Clear any contamination flag carried over from a previous test
+        // that reused this recorder instance (defensive - the same
+        // PersistenceSqlRecorder identity should not leak a stale tag into
+        // a fresh start).
+        SqlRecorderRegistry.clearCrossTestContaminationFor(this);
         SqlRecorderRegistry.INSTANCE.register(this);
     }
 
@@ -61,11 +73,35 @@ public class PersistenceSqlRecorder implements SqlRecorder<SqlExecutions> {
         if (sqlRepository == null) {
             sqlRepository = SqlRepositoryFactory.getSqlRepository(testExecutionContext);
         }
-        WorkingFolder workingFolder = testExecutionContext.getWorkingFolder();
-        return sqlRepository.findExecutedQueries(workingFolder);
+        try {
+            WorkingFolder workingFolder = testExecutionContext.getWorkingFolder();
+            SqlExecutions executions = sqlRepository.findExecutedQueries(workingFolder);
+            if (SqlRecorderRegistry.hasCrossTestContamination(this)) {
+                // Defensive: a misbehaving repository may return SqlExecutions.NONE
+                // (the JVM-wide singleton). Tagging NONE is a no-op so we
+                // would silently lose the warning. Swap to a fresh
+                // empty SqlExecutions in that case so the marker survives.
+                if (executions == SqlExecutions.NONE) {
+                    executions = new SqlExecutions();
+                }
+                executions.markCrossTestContamination();
+                WARNING_SINK.println(SqlExecutions.CROSS_TEST_CONTAMINATION_WARNING);
+            }
+            return executions;
+        } finally {
+            // Flag is single-shot per test - clearing after read prevents a
+            // subsequent reuse of this recorder (under @RepeatedTest, persistent
+            // worker pools, etc.) from re-emitting the same warning.
+            SqlRecorderRegistry.clearCrossTestContaminationFor(this);
+        }
     }
 
     @Override
-    public void cleanResources() {}
+    public void cleanResources() {
+        // Backstop eviction: defends against a recorder leaking a tag if
+        // findRecord() is never called (e.g. the test failed before
+        // PerfIssuesEvaluator ran).
+        SqlRecorderRegistry.clearCrossTestContaminationFor(this);
+    }
 
 }

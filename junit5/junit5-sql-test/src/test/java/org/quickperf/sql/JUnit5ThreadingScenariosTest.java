@@ -176,6 +176,23 @@ class JUnit5ThreadingScenariosTest {
         return listener.getSummary();
     }
 
+    /** Concatenates every failure's exception message (and, if available, its
+     * cause chain) into one string so tests can grep for the cross-test
+     * contamination warning that QuickPerf prepends to {@code SqlExecutions#format}. */
+    private static String collectFailureMessages(TestExecutionSummary summary) {
+        StringBuilder sb = new StringBuilder();
+        for (TestExecutionSummary.Failure failure : summary.getFailures()) {
+            Throwable t = failure.getException();
+            while (t != null) {
+                if (t.getMessage() != null) {
+                    sb.append(t.getMessage()).append(System.lineSeparator());
+                }
+                t = t.getCause();
+            }
+        }
+        return sb.toString();
+    }
+
     // =========================================================================
     // SQL on a pre-existing Tomcat-style HTTP worker thread
     // =========================================================================
@@ -527,11 +544,17 @@ class JUnit5ThreadingScenariosTest {
         // BOTH concurrent recorders. test_with_executor_select still sees
         // its expected 1 SELECT; test_with_no_sql (@ExpectSelect(0)) also
         // sees 1 and fails. The contamination warning surfaces alongside
-        // the failure - text assertions land in the contamination-flag
-        // commit on top of this count flip.
+        // the failure as guidance for the user.
         assertThat(summary.getTestsFailedCount())
                 .as("Concurrent tests sharing an executor surface a contamination warning")
                 .isOne();
+
+        String failureMessages = collectFailureMessages(summary);
+        assertThat(failureMessages)
+                .as("Failure message contains the cross-test contamination warning")
+                .contains("WARNING: SQL was recorded from a worker thread")
+                .contains("@HeapSize")
+                .contains("force a dedicated JVM");
     }
 
     // =========================================================================

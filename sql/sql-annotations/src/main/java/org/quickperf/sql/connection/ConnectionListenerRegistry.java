@@ -81,10 +81,12 @@ public class ConnectionListenerRegistry {
         // Pinned compound-write order (I2): ACTIVE_LISTENERS first.
         ACTIVE_LISTENERS.remove(connectionListener);
         if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
-            // Forked-JVM unregister: was previously a no-op; required for
-            // I10 (unregister-first ordering) to actually unpublish the
-            // listener before flush() runs in forked mode.
-            INSTANCE.connectionListenersOfTestJvm.remove(connectionListener);
+            // Forked-JVM unregister does NOT remove the listener from
+            // connectionListenersOfTestJvm: in forked-JVM mode, lifecycle
+            // teardown such as @After's emf.close() runs AFTER stopRecording()
+            // saves the captured data, but before the JVM exits. Removing
+            // the listener here would silently change runtime behaviour
+            // observed in pre-existing tests.
             return;
         }
         Long tid = Long.valueOf(Thread.currentThread().getId());
@@ -92,9 +94,13 @@ public class ConnectionListenerRegistry {
                 = PER_THREAD_LISTENERS.get(tid);
         if (perThread != null) {
             perThread.remove(connectionListener.getClass(), connectionListener);
-            if (perThread.isEmpty()) {
-                PER_THREAD_LISTENERS.remove(tid, perThread);
-            }
+            // Intentionally NOT removing the empty submap from
+            // PER_THREAD_LISTENERS: same discipline as SqlRecorderRegistry.
+            // The empty submap acts as a "this is a test pool thread"
+            // sentinel so the next test's @Before SQL on the same Surefire
+            // pool thread takes the test-thread fast path (returning the
+            // empty submap's values) instead of falling through to the
+            // worker-thread broadcast fallback.
         }
     }
 
@@ -164,6 +170,28 @@ public class ConnectionListenerRegistry {
         }
         // Empty-marker sentinel - same discipline as SqlRecorderRegistry.
         PER_THREAD_LISTENERS.put(tid,
+                new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>());
+    }
+
+    /**
+     * Claim the current thread as a test pool thread by installing an empty
+     * sentinel submap in {@code PER_THREAD_LISTENERS} (if absent). Mirror of
+     * {@link org.quickperf.sql.SqlRecorderRegistry#markTestThread()} - see
+     * that class for the full rationale. Test runners call this <em>before</em>
+     * any {@code @Before}/{@code @BeforeEach} method runs to prevent a
+     * @Before that emits SQL from broadcasting through the worker fallback
+     * to every connection listener currently live in the static
+     * {@code ACTIVE_LISTENERS} set.
+     */
+    public void markTestThread() {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (PER_THREAD_LISTENERS.get(tid) != null) {
+            return;
+        }
+        PER_THREAD_LISTENERS.putIfAbsent(tid,
                 new ConcurrentHashMap<Class<? extends ConnectionListener>, ConnectionListener>());
     }
 

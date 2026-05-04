@@ -100,12 +100,20 @@ class SpringBootThreadingScenariosJunit5Test {
                 runInParallel(CrossTestContaminationWithConcurrentAsync.class);
 
         // THEN
-        // Active-set fallback now attributes the @Async worker's SELECTs to
-        // BOTH concurrent recorders, so test_with_no_sql (@ExpectSelect(0))
-        // sees 3 selects and fails. The warning text assertions land in the
-        // contamination-flag commit on top of this count flip.
+        // Active-set fallback attributes the @Async worker's SELECTs to BOTH
+        // concurrent recorders, so test_with_no_sql (@ExpectSelect(0)) sees
+        // the sibling test's SQL and fails - alongside the cross-test
+        // contamination warning that QuickPerf prepends to the formatted
+        // perf-issue body.
         assertThat(summary.getTestsFailedCount())
                       .isOne();
+
+        String failureMessages = collectFailureMessages(summary);
+        assertThat(failureMessages)
+                      .as("Failure message contains the cross-test contamination warning")
+                      .contains("WARNING: SQL was recorded from a worker thread")
+                      .contains("@HeapSize")
+                      .contains("force a dedicated JVM");
 
     }
 
@@ -117,12 +125,20 @@ class SpringBootThreadingScenariosJunit5Test {
                 runInParallel(CrossTestContaminationWithConcurrentRandomPort.class);
 
         // THEN
-        // Active-set fallback now attributes the Tomcat worker's SELECTs to
-        // BOTH concurrent recorders, so test_with_no_sql (@ExpectSelect(0))
-        // sees 3 selects and fails. The warning text assertions land in the
-        // contamination-flag commit on top of this count flip.
+        // Active-set fallback attributes the Tomcat worker's SELECTs to BOTH
+        // concurrent recorders, so test_with_no_sql (@ExpectSelect(0)) sees
+        // the sibling test's SQL and fails - alongside the cross-test
+        // contamination warning that QuickPerf prepends to the formatted
+        // perf-issue body.
         assertThat(summary.getTestsFailedCount())
                       .isOne();
+
+        String failureMessages = collectFailureMessages(summary);
+        assertThat(failureMessages)
+                      .as("Failure message contains the cross-test contamination warning")
+                      .contains("WARNING: SQL was recorded from a worker thread")
+                      .contains("@HeapSize")
+                      .contains("force a dedicated JVM");
 
     }
 
@@ -138,6 +154,23 @@ class SpringBootThreadingScenariosJunit5Test {
         Launcher launcher = LauncherFactory.create();
         launcher.execute(request, listener);
         return listener.getSummary();
+    }
+
+    /** Concatenates every failure's exception message (and its cause chain)
+     * into one string so tests can grep for the cross-test contamination
+     * warning that QuickPerf prepends to {@code SqlExecutions#format}. */
+    private static String collectFailureMessages(TestExecutionSummary summary) {
+        StringBuilder sb = new StringBuilder();
+        for (TestExecutionSummary.Failure failure : summary.getFailures()) {
+            Throwable t = failure.getException();
+            while (t != null) {
+                if (t.getMessage() != null) {
+                    sb.append(t.getMessage()).append(System.lineSeparator());
+                }
+                t = t.getCause();
+            }
+        }
+        return sb.toString();
     }
 
 }

@@ -33,6 +33,21 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
 
     public static final SqlExecutions NONE = new SqlExecutions();
 
+    /** Prefix prepended to the formatted output when this measure was
+     * recorded under a cross-test contamination scenario (worker thread
+     * routed SQL into ACTIVE_RECORDERS while two or more recorders were
+     * simultaneously live). The marker text is short and well-known so
+     * downstream tools (and tests) can grep for it without parsing the rest
+     * of the body. */
+    public static final String CROSS_TEST_CONTAMINATION_WARNING =
+              "WARNING: SQL was recorded from a worker thread (e.g. @Async,"
+            + " @Scheduled, Tomcat HTTP, JMS / Kafka listener, gRPC, virtual"
+            + " thread, ...) while another QuickPerf test was running in"
+            + " parallel. The recorded SQL may include SQL belonging to that"
+            + " sibling test. Run this test in isolation, or annotate it with"
+            + " @HeapSize / @Xmx (or another JVM-forking annotation) to force"
+            + " a dedicated JVM, to confirm the failure.";
+
     private final Deque<SqlExecution> sqlExecutions = new ConcurrentLinkedDeque<SqlExecution>();
 
     /** O(1) size counter. ConcurrentLinkedDeque#size is O(n); we maintain an AtomicInteger
@@ -41,6 +56,14 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
      * incrementAndGet) keeps the counter as a lower bound on the deque size during the
      * tearing window — never an upper bound. See pr1-plan.md §2.5 / I17. */
     private final AtomicInteger executionCount = new AtomicInteger();
+
+    /** True when this measure was tagged by
+     * {@link #markCrossTestContamination()} after the recorder it was
+     * extracted from was observed in a multi-owner active-set fallback. The
+     * tag is read once by {@link #format(Collection)} to prepend
+     * {@link #CROSS_TEST_CONTAMINATION_WARNING}. NONE is guarded so the
+     * shared singleton can never carry a contamination tag. */
+    private volatile boolean crossTestContamination;
 
     public void add(ExecutionInfo execInfo, List<QueryInfo> queries) {
         if (this == NONE) {
@@ -179,6 +202,17 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
 
     @Override
     public String format(Collection<PerfIssue> perfIssues) {
+        String body = formatBody(perfIssues);
+        if (crossTestContamination) {
+            return CROSS_TEST_CONTAMINATION_WARNING
+                    + System.lineSeparator()
+                    + System.lineSeparator()
+                    + body;
+        }
+        return body;
+    }
+
+    private String formatBody(Collection<PerfIssue> perfIssues) {
         String standardFormatting = PerfIssuesFormat.STANDARD.format(perfIssues);
 
         if(SystemProperties.SIMPLIFIED_SQL_DISPLAY.evaluate()) {
@@ -192,6 +226,23 @@ public class SqlExecutions implements Iterable<SqlExecution>, ViewablePerfRecord
                 + System.lineSeparator()
                 + (noJdbcExecution() ? new DataSourceConfig().getMessage()
                                      : toString());
+    }
+
+    /** Tag this measure as observed under cross-test contamination. NONE is
+     * a JVM-wide-shared singleton; tagging it would leak the warning into
+     * every test that subsequently reads NONE, so the call is silently
+     * ignored on NONE. */
+    public void markCrossTestContamination() {
+        if (this == NONE) {
+            return;
+        }
+        crossTestContamination = true;
+    }
+
+    /** True when this measure has been tagged via
+     * {@link #markCrossTestContamination()}. */
+    public boolean hasCrossTestContamination() {
+        return crossTestContamination;
     }
 
     private boolean noJdbcExecution() {

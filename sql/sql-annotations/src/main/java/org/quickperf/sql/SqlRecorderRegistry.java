@@ -88,6 +88,23 @@ public class SqlRecorderRegistry {
     private static final ConcurrentMap<SqlRecorder, Long> ACTIVE_RECORDERS
             = new ConcurrentHashMap<SqlRecorder, Long>();
 
+    // Recorders that have been observed in a contamination scenario. A
+    // recorder lands here when:
+    //   - the worker-thread fallback fires for SQL while two or more distinct
+    //     owner tids are simultaneously live in ACTIVE_RECORDERS, OR
+    //   - register() / clear() displaces a still-live entry on the same
+    //     thread (rare reuse path, treated as a backstop, not the primary
+    //     trigger).
+    // A `mark` here is read once by PersistenceSqlRecorder.findRecord(), at
+    // which point the warning is emitted to WARNING_SINK and the entry is
+    // cleared so a subsequent test reusing the same recorder type starts
+    // clean. The set only ever holds PersistenceSqlRecorder instances; other
+    // SqlRecorder subtypes do not participate (this is the only recorder
+    // whose findRecord() is observed by users via @ExpectSelect / @AnalyzeSql
+    // / etc.).
+    private static final java.util.Set<SqlRecorder> CROSS_TEST_CONTAMINATED
+            = java.util.Collections.newSetFromMap(new ConcurrentHashMap<SqlRecorder, Boolean>());
+
     private SqlRecorderRegistry() {}
 
     public void register(SqlRecorder sqlRecorder) {
@@ -110,6 +127,7 @@ public class SqlRecorderRegistry {
         if (displaced != null && displaced != sqlRecorder) {
             // Avoid leaking the displaced recorder in the active set (I3).
             ACTIVE_RECORDERS.remove(displaced);
+            CROSS_TEST_CONTAMINATED.remove(displaced);
         }
         ACTIVE_RECORDERS.put(sqlRecorder, tid);
     }
@@ -121,19 +139,31 @@ public class SqlRecorderRegistry {
             ACTIVE_RECORDERS.remove(sqlRecorder, owner);
         }
         if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
-            // Forked-JVM unregister: was previously a no-op; required for I10
-            // (unregister-first ordering) to actually unpublish the recorder
-            // before flush() runs in forked mode.
-            INSTANCE.sqlRecorderByTypeOfTestJvm.remove(sqlRecorder.getClass(), sqlRecorder);
+            // Forked-JVM unregister does NOT remove the recorder from
+            // sqlRecorderByTypeOfTestJvm: in forked-JVM mode, lifecycle
+            // teardown such as @After's emf.close() and Hibernate's
+            // SchemaExport drop both run AFTER stopRecording() saves the
+            // captured data, but before the JVM exits. They emit additional
+            // SQL through the still-attached datasource-proxy listeners,
+            // and the assertion (e.g. @ExpectJdbcBatching) is evaluated in
+            // the OUTER JVM from the serialized file written by save() -
+            // so leaving the recorder registered here is a no-op for
+            // assertion correctness, while removing it would silently
+            // change runtime behaviour observed in pre-existing tests.
             return;
         }
         Long tid = Long.valueOf(Thread.currentThread().getId());
         ConcurrentMap<Class<? extends SqlRecorder>, SqlRecorder> perThread = PER_THREAD_RECORDERS.get(tid);
         if (perThread != null) {
             perThread.remove(sqlRecorder.getClass(), sqlRecorder);
-            if (perThread.isEmpty()) {
-                PER_THREAD_RECORDERS.remove(tid, perThread);
-            }
+            // Intentionally NOT removing the empty submap from PER_THREAD_RECORDERS:
+            // the submap acts as a "this is a test pool thread" sentinel so that
+            // the next test's @Before SQL on this same Surefire pool thread takes
+            // the test-thread fast path (returning the empty submap's values)
+            // instead of falling through to the worker-thread broadcast fallback,
+            // which would otherwise contaminate sibling tests' recorders under
+            // Surefire parallel=all. The submap is bounded by Surefire's pool
+            // size (a handful of entries), so retention does not leak.
         }
     }
 
@@ -151,10 +181,17 @@ public class SqlRecorderRegistry {
             return new ArrayList<SqlRecorder>(perThread.values());
         }
         // Worker-thread fallback: snapshot ACTIVE_RECORDERS (weakly-consistent)
-        // and return the recorders. Cross-test contamination detection
-        // arrives in a follow-up commit; for now the snapshot is the
-        // attribution channel only.
-        return new ArrayList<SqlRecorder>(ACTIVE_RECORDERS.keySet());
+        // and return the recorders. If two or more distinct owners are
+        // simultaneously live the attribution is genuinely ambiguous - mark
+        // every PersistenceSqlRecorder in the snapshot so that whichever
+        // recorder a user later inspects emits the contamination warning.
+        java.util.Set<Map.Entry<SqlRecorder, Long>> snapshot = new java.util.HashSet<Map.Entry<SqlRecorder, Long>>(ACTIVE_RECORDERS.entrySet());
+        markIfMultipleOwners(snapshot);
+        ArrayList<SqlRecorder> result = new ArrayList<SqlRecorder>(snapshot.size());
+        for (Map.Entry<SqlRecorder, Long> entry : snapshot) {
+            result.add(entry.getKey());
+        }
+        return result;
     }
 
     public <T extends SqlRecorder> T getSqlRecorderOfType(Class<T> type) {
@@ -172,8 +209,14 @@ public class SqlRecorderRegistry {
             return hit != null ? type.cast(hit) : null;
         }
         // Worker-thread fallback: snapshot ACTIVE_RECORDERS, find the first
-        // matching instance.
-        for (Map.Entry<SqlRecorder, Long> entry : ACTIVE_RECORDERS.entrySet()) {
+        // matching instance. Mark on multi-owner snapshots (same trigger as
+        // getSqlRecorders) - the recorder we return may not be the one the
+        // assertion thread later reads, but every PersistenceSqlRecorder in
+        // the snapshot is marked so whichever one is observed surfaces the
+        // warning.
+        java.util.Set<Map.Entry<SqlRecorder, Long>> snapshot = new java.util.HashSet<Map.Entry<SqlRecorder, Long>>(ACTIVE_RECORDERS.entrySet());
+        markIfMultipleOwners(snapshot);
+        for (Map.Entry<SqlRecorder, Long> entry : snapshot) {
             SqlRecorder candidate = entry.getKey();
             if (type.isInstance(candidate)) {
                 return type.cast(candidate);
@@ -182,12 +225,74 @@ public class SqlRecorderRegistry {
         return null;
     }
 
+    private static void markIfMultipleOwners(java.util.Set<Map.Entry<SqlRecorder, Long>> snapshot) {
+        if (snapshot.size() < 2) {
+            return;
+        }
+        java.util.Set<Long> distinctOwners = new java.util.HashSet<Long>();
+        for (Map.Entry<SqlRecorder, Long> entry : snapshot) {
+            distinctOwners.add(entry.getValue());
+            if (distinctOwners.size() >= 2) {
+                break;
+            }
+        }
+        if (distinctOwners.size() < 2) {
+            return;
+        }
+        for (Map.Entry<SqlRecorder, Long> entry : snapshot) {
+            SqlRecorder candidate = entry.getKey();
+            if (candidate instanceof PersistenceSqlRecorder) {
+                CROSS_TEST_CONTAMINATED.add(candidate);
+            }
+        }
+    }
+
+    static void markCrossTestContamination(SqlRecorder recorder) {
+        if (recorder instanceof PersistenceSqlRecorder) {
+            CROSS_TEST_CONTAMINATED.add(recorder);
+        }
+    }
+
+    static boolean hasCrossTestContamination(SqlRecorder recorder) {
+        return CROSS_TEST_CONTAMINATED.contains(recorder);
+    }
+
+    static void clearCrossTestContaminationFor(SqlRecorder recorder) {
+        CROSS_TEST_CONTAMINATED.remove(recorder);
+    }
+
+    /**
+     * Claim the current thread as a test pool thread by installing an empty
+     * sentinel submap in {@code PER_THREAD_RECORDERS} (if absent). Test
+     * runners ({@code QuickPerfJUnitRunner}, {@code QuickPerfTestExtension},
+     * TestNG listener) call this <em>before</em> any {@code @Before}/
+     * {@code @BeforeEach} method runs so that a {@code @Before} that emits
+     * SQL (e.g. Hibernate {@code EntityManagerFactory} creation, schema
+     * generation) BEFORE {@code register(...)} populates the submap takes
+     * the test-thread fast path (which returns the empty submap's values =
+     * empty list) instead of the worker-thread fallback (which broadcasts
+     * to every recorder currently live in {@code ACTIVE_RECORDERS},
+     * contaminating sibling tests under Surefire {@code parallel=all}).
+     */
+    public void markTestThread() {
+        if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
+            return;
+        }
+        Long tid = Long.valueOf(Thread.currentThread().getId());
+        if (PER_THREAD_RECORDERS.get(tid) != null) {
+            return;
+        }
+        PER_THREAD_RECORDERS.putIfAbsent(tid,
+                new ConcurrentHashMap<Class<? extends SqlRecorder>, SqlRecorder>());
+    }
+
     public void clear() {
         Long tid = Long.valueOf(Thread.currentThread().getId());
         if (TEST_CODE_EXECUTING_IN_NEW_JVM.evaluate()) {
             // Symmetrically clear ACTIVE_RECORDERS for forked-JVM recorders too.
             for (SqlRecorder r : new ArrayList<SqlRecorder>(sqlRecorderByTypeOfTestJvm.values())) {
                 ACTIVE_RECORDERS.remove(r);
+                CROSS_TEST_CONTAMINATED.remove(r);
             }
             sqlRecorderByTypeOfTestJvm.clear();
             return;
@@ -196,6 +301,7 @@ public class SqlRecorderRegistry {
         if (previous != null) {
             for (SqlRecorder r : previous.values()) {
                 ACTIVE_RECORDERS.remove(r);
+                CROSS_TEST_CONTAMINATED.remove(r);
             }
         }
         // Install an empty-marker submap so subsequent reads from THIS thread
