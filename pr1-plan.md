@@ -57,7 +57,15 @@ Out of scope (deferred to later PRs):
   or attaching the snapshot at pool-checkout time via a Quarkus
   `PoolInterceptor` / Micronaut `DataSource` listener. Both are larger
   changes than PR1 should carry. The snapshot now lives in PR4 (Quarkus)
-  and PR5 (Micronaut).
+  and PR5 (Micronaut). *(2025-11: this deferral was re-validated by an
+  end-to-end synthesis attempt — see `pr1-per-connection-snapshot-plan.md`
+  §12 for the hostile review that confirmed listener-side identity
+  dispatch on `wrapper.delegate` also fails, because dsproxy stamps
+  `ExecutionInfo` with the raw underlying `Statement` whose
+  `getConnection()` returns the raw pool connection — one level **below**
+  `wrapper.delegate`. The original deferral analysis was correct;
+  `threading-fix-pr-sequence.md §PR1` has been amended to remove the
+  third PR1 commitment.)*
 - `QuickPerfContext.wrap(...)` API (PR2).
 - Tightening the warning into a hard failure (PR3).
 - Reactive / R2DBC modules (PR6 / PR7).
