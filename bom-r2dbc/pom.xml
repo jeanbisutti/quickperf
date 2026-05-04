@@ -10,7 +10,8 @@
   ~ Copyright 2019-2022 the original author or authors.
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <parent>
         <groupId>org.quickperf</groupId>
@@ -20,17 +21,23 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>quick-perf-bom</artifactId>
+    <artifactId>quick-perf-r2dbc-bom</artifactId>
     <version>1.1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
+    <name>QuickPerf R2DBC BOM</name>
+    <description>
+        Dedicated Bill of Materials for R2DBC consumers of QuickPerf. Pins the
+        QuickPerf R2DBC modules together with the verified versions of
+        r2dbc-spi, r2dbc-proxy and r2dbc-pool. The umbrella quick-perf-bom
+        keeps managing every QuickPerf module; this BOM offers a smaller
+        import for projects that only need reactive SQL support.
+    </description>
+
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-jfr-annotations</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
+
+            <!-- QuickPerf R2DBC modules. -->
             <dependency>
                 <groupId>org.quickperf</groupId>
                 <artifactId>quick-perf-sql-annotations</artifactId>
@@ -41,6 +48,15 @@
                 <artifactId>quick-perf-sql-annotations-r2dbc</artifactId>
                 <version>1.1.1-SNAPSHOT</version>
             </dependency>
+            <dependency>
+                <groupId>org.quickperf</groupId>
+                <artifactId>quick-perf-springboot-r2dbc-sql-starter</artifactId>
+                <version>1.1.1-SNAPSHOT</version>
+            </dependency>
+
+            <!-- Test runners — included so downstream R2DBC consumers do not
+                 need to re-pin a QuickPerf version when they pick up junit4,
+                 junit5 or testng. -->
             <dependency>
                 <groupId>org.quickperf</groupId>
                 <artifactId>quick-perf-junit4</artifactId>
@@ -56,49 +72,9 @@
                 <artifactId>quick-perf-testng</artifactId>
                 <version>1.1.1-SNAPSHOT</version>
             </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-sql-spring4</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-sql-spring5</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-junit4-spring3</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-junit4-spring4</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-junit4-spring5</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-springboot1-sql-starter</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-springboot2-sql-starter</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
-            <dependency>
-                <groupId>org.quickperf</groupId>
-                <artifactId>quick-perf-springboot-r2dbc-sql-starter</artifactId>
-                <version>1.1.1-SNAPSHOT</version>
-            </dependency>
 
             <!-- Third-party R2DBC versions verified against the QuickPerf
-                 R2DBC modules. Kept in sync with bom-r2dbc/pom.xml. -->
+                 R2DBC modules. Kept in sync with bom/pom.xml. -->
             <dependency>
                 <groupId>io.r2dbc</groupId>
                 <artifactId>r2dbc-spi</artifactId>
@@ -114,6 +90,7 @@
                 <artifactId>r2dbc-pool</artifactId>
                 <version>1.0.1.RELEASE</version>
             </dependency>
+
         </dependencies>
     </dependencyManagement>
 

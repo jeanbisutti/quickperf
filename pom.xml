@@ -199,6 +199,7 @@
         <module>testng</module>
         <module>spring</module>
         <module>bom</module>
+        <module>bom-r2dbc</module>
     </modules>
 
     <profiles>
