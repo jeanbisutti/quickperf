@@ -16,6 +16,7 @@ import io.r2dbc.proxy.ProxyConnectionFactory;
 import io.r2dbc.proxy.callback.ProxyConfig;
 import io.r2dbc.proxy.callback.QuickPerfProxyFactoryFactory;
 import io.r2dbc.spi.ConnectionFactory;
+import org.quickperf.sql.r2dbc.R2dbcConnectionLifecycleListener;
 import org.quickperf.sql.r2dbc.R2dbcQuickPerfListener;
 
 /**
@@ -61,6 +62,7 @@ public final class QuickPerfR2dbcConnectionFactoryBuilder {
                 .proxyFactoryFactory(new QuickPerfProxyFactoryFactory())
                 .build();
         proxyConfig.addListener(new R2dbcQuickPerfListener(beanName));
+        proxyConfig.addListener(new R2dbcConnectionLifecycleListener());
         return ProxyConnectionFactory.builder(original)
                 .proxyConfig(proxyConfig)
                 .build();

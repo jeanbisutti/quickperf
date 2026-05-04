@@ -18,40 +18,62 @@ import org.quickperf.measure.BooleanMeasure;
 import org.quickperf.perfrecording.RecordablePerformance;
 import org.quickperf.repository.BooleanMeasureRepository;
 
-import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Tracks connection acquisition and release events using opaque connection ids
+ * supplied by {@link SqlConnectionEvent}, so that the same listener instance
+ * can detect leaks for both JDBC connections (via the neutral events fired by
+ * {@link QuickPerfDatabaseConnection}) and reactive R2DBC connections (via the
+ * R2DBC connection-lifecycle listener that dispatches against
+ * {@link ConnectionListenerHook}).
+ *
+ * <p>The listener registers exclusively with {@link ConnectionListenerHook};
+ * it does not subscribe to {@link ConnectionListenerRegistry} because the
+ * registry's {@link InheritableThreadLocal} storage is unreliable from
+ * Reactor scheduler threads, and the JDBC neutral events dispatched from
+ * {@link QuickPerfDatabaseConnection} already reach the hook.
+ */
 public class ConnectionLeakListener extends ConnectionListener
         implements RecordablePerformance<BooleanMeasure> {
 
-    private final List<Connection> connections = new ArrayList<>();
+    private final Set<String> openConnectionIds =
+            Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 
     private BooleanMeasure connectionLeak;
 
     private static final String CONNECTION_LEAK_FILE_NAME = "connection-leak.ser";
 
     @Override
-    public void theDatasourceGetsTheConnection(Connection connection) {
-        connections.add(connection);
+    public void onConnectionAcquired(SqlConnectionEvent event) {
+        openConnectionIds.add(event.getConnectionId());
     }
 
     @Override
-    public void close(Connection connection) {
-        connections.remove(connection);
+    public void onConnectionReleased(SqlConnectionEvent event) {
+        openConnectionIds.remove(event.getConnectionId());
+    }
+
+    /**
+     * Number of connection ids currently observed as acquired but not released.
+     */
+    public int countLeakedConnections() {
+        return openConnectionIds.size();
     }
 
     @Override
     public void startRecording(TestExecutionContext testExecutionContext) {
-        connections.clear();
-        ConnectionListenerRegistry.INSTANCE.register(this);
+        openConnectionIds.clear();
+        ConnectionListenerHook.register(this);
     }
 
     @Override
     public void stopRecording(TestExecutionContext testExecutionContext) {
-        ConnectionListenerRegistry.unregister(this);
-        connectionLeak = BooleanMeasure.of(!connections.isEmpty());
-        connections.clear();
+        ConnectionListenerHook.unregister(this);
+        connectionLeak = BooleanMeasure.of(!openConnectionIds.isEmpty());
+        openConnectionIds.clear();
         if (testExecutionContext.testExecutionUsesTwoJVMs()) {
             WorkingFolder workingFolder = testExecutionContext.getWorkingFolder();
             BooleanMeasureRepository.INSTANCE.save(connectionLeak, workingFolder, CONNECTION_LEAK_FILE_NAME);

@@ -39,11 +39,96 @@ public class QuickPerfDatabaseConnection implements Connection {
         for (ConnectionListener connectionListener : connectionListeners) {
             connectionListener.theDatasourceGetsTheConnection(this);
         }
+        fireAcquired();
     }
 
     public void theDatasourceGetsTheConnectionWithUserNameAndPassword() {
         for (ConnectionListener connectionListener : connectionListeners) {
             connectionListener.theDatasourceGetsTheConnectionWithUserNameAndPassword(this);
+        }
+        fireAcquired();
+    }
+
+    private String connectionId() {
+        return "jdbc-" + System.identityHashCode(this);
+    }
+
+    private SqlConnectionEvent newEvent() {
+        return SqlConnectionEvent.jdbc(connectionId());
+    }
+
+    private void fireAcquired() {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onConnectionAcquired(event);
+        }
+    }
+
+    private void fireReleased() {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onConnectionReleased(event);
+        }
+    }
+
+    private void fireAutoCommitChanged(boolean autoCommit) {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onAutoCommitChanged(event, autoCommit);
+        }
+    }
+
+    private void fireTransactionCommitted() {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onTransactionCommitted(event);
+        }
+    }
+
+    private void fireTransactionRolledBack() {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onTransactionRolledBack(event);
+        }
+    }
+
+    private void fireIsolationLevelChanged(int level) {
+        SqlConnectionEvent event = newEvent();
+        String levelName = String.valueOf(level);
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onIsolationLevelChanged(event, levelName);
+        }
+    }
+
+    private void fireSavepointCreated(String name) {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onSavepointCreated(event, name);
+        }
+    }
+
+    private void fireSavepointReleased(String name) {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onSavepointReleased(event, name);
+        }
+    }
+
+    private void fireSavepointRolledBack(String name) {
+        SqlConnectionEvent event = newEvent();
+        for (SqlConnectionListener listener : ConnectionListenerHook.getActiveListeners()) {
+            listener.onSavepointRolledBack(event, name);
+        }
+    }
+
+    private static String savepointName(Savepoint savepoint) {
+        if (savepoint == null) {
+            return null;
+        }
+        try {
+            return savepoint.getSavepointName();
+        } catch (SQLException ignored) {
+            return null;
         }
     }
 
@@ -85,6 +170,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.setAutoCommit(this, autoCommit);
         }
         delegate.setAutoCommit(autoCommit);
+        fireAutoCommitChanged(autoCommit);
     }
 
     @Override
@@ -98,6 +184,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.commit(this);
         }
         delegate.commit();
+        fireTransactionCommitted();
     }
 
     @Override
@@ -106,6 +193,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.rollback(this);
         }
         delegate.rollback();
+        fireTransactionRolledBack();
     }
 
     @Override
@@ -113,6 +201,7 @@ public class QuickPerfDatabaseConnection implements Connection {
         for (ConnectionListener connectionListener : connectionListeners) {
             connectionListener.close(this);
         }
+        fireReleased();
         delegate.close();
     }
 
@@ -158,6 +247,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.setTransactionIsolation(this, level);
         }
         delegate.setTransactionIsolation(level);
+        fireIsolationLevelChanged(level);
     }
 
     @Override
@@ -234,7 +324,9 @@ public class QuickPerfDatabaseConnection implements Connection {
         for (ConnectionListener connectionListener : connectionListeners) {
             connectionListener.setSavepoint(this);
         }
-        return delegate.setSavepoint();
+        Savepoint savepoint = delegate.setSavepoint();
+        fireSavepointCreated(savepointName(savepoint));
+        return savepoint;
     }
 
     @Override
@@ -242,7 +334,9 @@ public class QuickPerfDatabaseConnection implements Connection {
         for (ConnectionListener connectionListener : connectionListeners) {
             connectionListener.setSavepoint(this, name);
         }
-        return delegate.setSavepoint(name);
+        Savepoint savepoint = delegate.setSavepoint(name);
+        fireSavepointCreated(name);
+        return savepoint;
     }
 
     @Override
@@ -251,6 +345,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.rollback(this, savepoint);
         }
         delegate.rollback(savepoint);
+        fireSavepointRolledBack(savepointName(savepoint));
     }
 
     @Override
@@ -259,6 +354,7 @@ public class QuickPerfDatabaseConnection implements Connection {
             connectionListener.releaseSavepoint(this, savepoint);
         }
         delegate.releaseSavepoint(savepoint);
+        fireSavepointReleased(savepointName(savepoint));
     }
 
     @Override

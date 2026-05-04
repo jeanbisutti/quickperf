@@ -20,6 +20,7 @@ import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.Wrapped;
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
+import org.quickperf.sql.r2dbc.R2dbcConnectionLifecycleListener;
 import org.quickperf.sql.r2dbc.R2dbcQuickPerfListener;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -93,6 +94,7 @@ public class QuickPerfR2dbcProxyBeanPostProcessor implements BeanPostProcessor, 
                 .proxyFactoryFactory(new QuickPerfProxyFactoryFactory())
                 .build();
         proxyConfig.addListener(new R2dbcQuickPerfListener(beanName));
+        proxyConfig.addListener(new R2dbcConnectionLifecycleListener());
         ConnectionFactory r2dbcProxiedFactory = ProxyConnectionFactory.builder(target)
                 .proxyConfig(proxyConfig)
                 .build();
